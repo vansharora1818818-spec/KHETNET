@@ -356,8 +356,8 @@ function KhetNetLogo({ className = "w-12 h-12" }: { className?: string }) {
     };
 
     setUser(newUser);
-    // Add to registry early
-    setAllLogins(prev => [...prev.filter(u => u.email !== newUser.email), newUser]);
+    // Add to registry early using unique ID to avoid overwriting
+    setAllLogins(prev => [...prev.filter(u => u.id !== newUser.id), newUser]);
     setStage('category');
   };
 
@@ -367,9 +367,9 @@ function KhetNetLogo({ className = "w-12 h-12" }: { className?: string }) {
       if (!current) return current;
       const updatedUser = { ...current, role } as User;
       
-      // Update registry with complete user
+      // Update registry with complete user using unique ID
       setAllLogins(prev => {
-        const filtered = prev.filter(u => u.email !== updatedUser.email);
+        const filtered = prev.filter(u => u.id !== updatedUser.id);
         return [...filtered, updatedUser];
       });
 
@@ -1284,27 +1284,28 @@ function Dashboard({
 
                             {user.role === 'wholesaler' && o.status === 'approved' && (
                               <div className="mb-4 space-y-3">
-                                <button 
-                                  onClick={() => handleMarkReceived(o.id)}
-                                  className="w-full py-3 bg-[#4C6B36] text-white rounded-2xl text-xs font-black shadow-lg shadow-[#4C6B36]/10 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
-                                >
-                                  {t.mark_received} <PackageCheck className="w-4 h-4" />
-                                </button>
-                                
-                                <div className="p-4 bg-[#F0F7EB] rounded-2xl border border-[#E2F0D9] flex items-center justify-between group/contact">
+                                <div className="p-4 bg-[#F0F7EB] rounded-2xl border-2 border-[#4C6B36]/20 flex items-center justify-between group/contact ring-2 ring-[#4C6B36]/5">
                                   <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white rounded-xl shadow-sm">
-                                      <Phone className="w-4 h-4 text-[#4C6B36]" />
+                                    <div className="p-2.5 bg-white rounded-xl shadow-sm border border-[#E2F0D9]">
+                                      <Phone className="w-5 h-5 text-[#4C6B36]" />
                                     </div>
                                     <div>
-                                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-none mb-1">{t.farmer_contact}</p>
-                                      <p className="text-sm font-black text-[#4C6B36]">{o.farmerMobile || 'N/A'}</p>
+                                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-none mb-1.5">{t.farmer_contact}</p>
+                                      <p className="text-base font-black text-[#4C6B36] tracking-tight">{o.farmerMobile || 'N/A'}</p>
                                     </div>
                                   </div>
-                                  <a href={`tel:${o.farmerMobile}`} className="p-2 bg-[#4C6B36] text-white rounded-xl shadow-md opacity-0 group-hover/contact:opacity-100 transition-all active:scale-90">
+                                  <a href={`tel:${o.farmerMobile}`} className="p-3 bg-[#4C6B36] text-white rounded-xl shadow-lg hover:bg-[#3D562B] transition-all active:scale-90 flex items-center gap-2">
                                     <Phone className="w-4 h-4" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Call</span>
                                   </a>
                                 </div>
+
+                                <button 
+                                  onClick={() => handleMarkReceived(o.id)}
+                                  className="w-full py-4 bg-[#4C6B36] text-white rounded-2xl text-xs font-black shadow-lg shadow-[#4C6B36]/20 active:scale-95 transition-all flex items-center justify-center gap-3 uppercase tracking-widest border-b-4 border-[#3D562B]"
+                                >
+                                  {t.mark_received} <PackageCheck className="w-5 h-5" />
+                                </button>
                               </div>
                             )}
 
@@ -1420,6 +1421,7 @@ function Dashboard({
                 <NavButton icon={<ShoppingCart className={activeTab === 'cart' ? 'text-white' : 'text-gray-400'} />} label={t.cart} active={activeTab === 'cart'} onClick={() => setActiveTab('cart')} />
                 {cartItemsCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#4C6B36] text-white text-[10px] flex items-center justify-center rounded-full border-2 border-white font-bold">{cartItemsCount}</span>}
               </div>
+              <NavButton icon={<FileText className={activeTab === 'orders' ? 'text-white' : 'text-gray-400'} />} label={t.orders} active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
               <NavButton icon={<UserIcon className={activeTab === 'profile' ? 'text-white' : 'text-gray-400'} />} label={t.profile} active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} />
             </>
           ) : (
