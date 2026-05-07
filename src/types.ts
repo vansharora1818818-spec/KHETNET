@@ -6,6 +6,7 @@ export interface User {
   name: string;
   age: number;
   email: string;
+  password?: string;
   mobile?: string;
   role: 'farmer' | 'wholesaler' | null;
   state: string;

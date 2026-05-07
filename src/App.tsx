@@ -94,8 +94,8 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
         } catch (e) { console.error(e); }
       }
       return [
-        { id: '1', name: 'Ramesh Kumar', age: 45, email: 'ramesh@farm.com', role: 'farmer', state: 'Punjab', region: 'Ludhiana', language: 'hi' },
-        { id: '2', name: 'Suresh Singh', age: 38, email: 'suresh@wholesale.com', role: 'wholesaler', state: 'Haryana', region: 'Gurugram', language: 'en' },
+        { id: '1', name: 'Ramesh Kumar', age: 45, email: 'ramesh@farm.com', password: 'pass1', role: 'farmer', state: 'Punjab', region: 'Ludhiana', language: 'hi' },
+        { id: '2', name: 'Suresh Singh', age: 38, email: 'suresh@wholesale.com', password: 'pass2', role: 'wholesaler', state: 'Haryana', region: 'Gurugram', language: 'en' },
       ];
     });
 
@@ -179,7 +179,22 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
     
     // Host Login Check
     if (email === 'devilboy102030405060708090' && password === '1234vansh') {
+      const hostUser: Partial<User> = { id: 'host', name: 'Host Admin', email, role: null };
+      setUser(hostUser);
       setStage('host');
+      return;
+    }
+
+    // Check if user already exists
+    const existingUser = allLogins.find(u => u.email === email && u.password === password);
+    if (existingUser) {
+      setUser(existingUser);
+      if (existingUser.role) {
+        setStage('dashboard');
+        setActiveTab('home');
+      } else {
+        setStage('category');
+      }
       return;
     }
     
@@ -200,7 +215,8 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
       id: Math.random().toString(36).substr(2, 9),
       name, 
       age, 
-      email: email || 'user@gmail.com', 
+      email: email || 'user@gmail.com',
+      password: password || '123456', 
       state: user.state || 'Punjab',
       region: user.region || 'Ludhiana',
       language: lang,
@@ -1149,17 +1165,18 @@ function HostDashboard({ t, logins, onLogout }: { t: any, logins: User[], onLogo
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {logins.map((login) => (
             <div key={login.id} className="bg-white p-5 rounded-3xl border border-[#E2F0D9] shadow-sm flex flex-col gap-2">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-bold text-lg">{login.name}</h3>
-                  <p className="text-xs text-gray-500">{login.email}</p>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-bold text-lg">{login.name}</h3>
+                    <p className="text-xs text-gray-400 font-mono select-all">Email: {login.email}</p>
+                    <p className="text-xs text-gray-400 font-mono select-all">Pass: {login.password}</p>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                    login.role === 'farmer' ? 'bg-[#F0F7EB] text-[#4C6B36]' : 'bg-blue-50 text-blue-600'
+                  }`}>
+                    {login.role ? t[login.role] : t.onboarding}
+                  </span>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                  login.role === 'farmer' ? 'bg-[#F0F7EB] text-[#4C6B36]' : 'bg-blue-50 text-blue-600'
-                }`}>
-                  {login.role ? t[login.role] : t.onboarding}
-                </span>
-              </div>
               <div className="grid grid-cols-2 gap-2 mt-2 pt-3 border-t border-[#F5F9F2]">
                 <div>
                   <label className="text-[10px] text-gray-400 font-bold uppercase">{t.age}</label>
