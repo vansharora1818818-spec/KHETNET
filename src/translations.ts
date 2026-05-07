@@ -97,6 +97,7 @@ export const translations = {
     brand_assets_desc: "Official logo and quality marks",
     farmer_contact: "Farmer's Contact",
     contact_unlocked: "Farmer's contact details are now visible.",
+    max_quantity_reached: "Maximum quantity reached",
   },
   hi: {
     select_language: "भाषा चुनें",
@@ -195,6 +196,7 @@ export const translations = {
     brand_assets_desc: "आधिकारिक लोगो और गुणवत्ता चिह्न",
     farmer_contact: "किसान का संपर्क",
     contact_unlocked: "किसान के संपर्क विवरण अब दिखाई दे रहे हैं।",
+    max_quantity_reached: "अधिकतम मात्रा तक पहुँच गए",
   },
   ta: {
     select_language: "மொழியைத் தேர்ந்தெடுக்கவும்",
@@ -293,6 +295,7 @@ export const translations = {
     brand_assets_desc: "அதிகாரப்பூர்வ லோகோ மற்றும் தரக் గుర్తులు",
     farmer_contact: "விவசாயியின் தொடர்பு",
     contact_unlocked: "விவசாயியின் தொடர்பு விவரங்கள் இப்போது கிடைக்கின்றன.",
+    max_quantity_reached: "அதிகபட்ச அளவு எட்டப்பட்டது",
   },
   te: {
     select_language: "భాషను ఎంచుకోండి",
@@ -391,5 +394,6 @@ export const translations = {
     brand_assets_desc: "అధికారిక లోగో మరియు నాణ్యత గుర్తులు",
     farmer_contact: "రైతు సంప్రదింపు",
     contact_unlocked: "రైతు సంప్రదింపు వివరాలు ఇప్పుడు కనిపిస్తాయి.",
+    max_quantity_reached: "గరిష్ట పరిమాణం చేరుకుంది",
   }
 };

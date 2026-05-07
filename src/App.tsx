@@ -871,7 +871,22 @@ function Dashboard({
   const cartItemsCount = cart.length;
 
   const addToCart = (productId: string) => {
-    setCart((prev: any) => [...prev, { productId, quantity: 1 }]);
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+    
+    setCart((prev: any) => {
+      const existing = prev.find((i: any) => i.productId === productId);
+      if (existing) {
+        if (existing.quantity >= product.maxQuantity) {
+          alert(`${t.max_quantity_reached}: ${product.maxQuantity}kg`);
+          return prev;
+        }
+        return prev.map((i: any) => 
+          i.productId === productId ? { ...i, quantity: i.quantity + 1 } : i
+        );
+      }
+      return [...prev, { productId, quantity: 1 }];
+    });
   };
 
   const removeFromCart = (productId: string) => {
@@ -879,8 +894,20 @@ function Dashboard({
   };
 
   const updateCartQty = (productId: string, delta: number) => {
-    setCart((prev: any) => prev.map((i: any) => 
-      i.productId === productId ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+
+    setCart((prev: any) => prev.map((i: any) => {
+      if (i.productId === productId) {
+        const newQty = i.quantity + delta;
+        if (newQty > product.maxQuantity) {
+          alert(`${t.max_quantity_reached}: ${product.maxQuantity}kg`);
+          return i;
+        }
+        return { ...i, quantity: Math.max(1, newQty) };
+      }
+      return i;
+    }
     ));
   };
 
@@ -1195,8 +1222,17 @@ function Dashboard({
                               </div>
                               <div className="flex items-center gap-3 bg-[#F9FBFA] p-1 rounded-2xl">
                                 <button onClick={() => updateCartQty(item.productId, -1)} className="p-2 hover:bg-white rounded-xl transition-colors text-gray-400 hover:text-[#4C6B36]"><Plus className="w-4 h-4 rotate-45" /></button>
-                                <span className="font-bold w-4 text-center">{item.quantity}</span>
-                                <button onClick={() => updateCartQty(item.productId, 1)} className="p-2 hover:bg-white rounded-xl transition-colors text-gray-400 hover:text-[#4C6B36]"><Plus className="w-4 h-4" /></button>
+                                <div className="flex flex-col items-center min-w-[32px]">
+                                  <span className="font-bold text-center">{item.quantity}</span>
+                                  <span className="text-[8px] text-gray-400 font-bold">max {p?.maxQuantity}</span>
+                                </div>
+                                <button 
+                                  onClick={() => updateCartQty(item.productId, 1)} 
+                                  disabled={item.quantity >= (p?.maxQuantity || 0)}
+                                  className={`p-2 rounded-xl transition-all ${item.quantity >= (p?.maxQuantity || 0) ? 'bg-gray-100 text-gray-300' : 'hover:bg-white text-gray-400 hover:text-[#4C6B36]'}`}
+                                >
+                                  <Plus className="w-4 h-4" />
+                                </button>
                               </div>
                               <button onClick={() => removeFromCart(item.productId)} className="p-2 text-red-100 hover:text-red-500 transition-colors">
                                 <Trash2 className="w-5 h-5" />
