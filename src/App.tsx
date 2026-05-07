@@ -71,6 +71,9 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
     // Persistence Keys
     const SESSION_KEY = 'khetnet_session';
     const LOGINS_KEY = 'khetnet_logins';
+    const PRODUCTS_KEY = 'khetnet_products';
+    const ORDERS_KEY = 'khetnet_orders';
+    const CHAT_KEY = 'khetnet_chat';
 
     const [stage, setStage] = useState<'language' | 'location' | 'login' | 'details' | 'category' | 'dashboard' | 'host'>('language');
     const [lang, setLang] = useState<Language>('en');
@@ -83,7 +86,37 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
     const [aiInput, setAiInput] = useState('');
 
     // Host Data (Mocking a registry of logins)
-    const [allLogins, setAllLogins] = useState<User[]>([]);
+    const [allLogins, setAllLogins] = useState<User[]>(() => {
+      const saved = localStorage.getItem('khetnet_logins');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) { console.error(e); }
+      }
+      return [
+        { id: '1', name: 'Ramesh Kumar', age: 45, email: 'ramesh@farm.com', role: 'farmer', state: 'Punjab', region: 'Ludhiana', language: 'hi' },
+        { id: '2', name: 'Suresh Singh', age: 38, email: 'suresh@wholesale.com', role: 'wholesaler', state: 'Haryana', region: 'Gurugram', language: 'en' },
+      ];
+    });
+
+  // App Data (Mocking backend state)
+  const [products, setProducts] = useState<Product[]>(() => {
+    const saved = localStorage.getItem('khetnet_products');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [orders, setOrders] = useState<Order[]>(() => {
+    const saved = localStorage.getItem('khetnet_orders');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [cart, setCart] = useState<{ productId: string, quantity: number }[]>([]);
+  const [activeTab, setActiveTab] = useState<'home' | 'search' | 'cart' | 'profile' | 'new_item' | 'orders'>('home');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [activeChat, setActiveChat] = useState<string | null>(null); // Order ID
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
+    const saved = localStorage.getItem('khetnet_chat');
+    return saved ? JSON.parse(saved) : [];
+  });
 
     // Load from persistence on mount
     useEffect(() => {
@@ -97,23 +130,6 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
         } catch (e) {
           console.error("Error parsing saved session", e);
         }
-      }
-
-      const savedLogins = localStorage.getItem(LOGINS_KEY);
-      if (savedLogins) {
-        try {
-          setAllLogins(JSON.parse(savedLogins));
-        } catch (e) {
-          setAllLogins([
-            { id: '1', name: 'Ramesh Kumar', age: 45, email: 'ramesh@farm.com', role: 'farmer', state: 'Punjab', region: 'Ludhiana', language: 'hi' },
-            { id: '2', name: 'Suresh Singh', age: 38, email: 'suresh@wholesale.com', role: 'wholesaler', state: 'Haryana', region: 'Gurugram', language: 'en' },
-          ]);
-        }
-      } else {
-        setAllLogins([
-          { id: '1', name: 'Ramesh Kumar', age: 45, email: 'ramesh@farm.com', role: 'farmer', state: 'Punjab', region: 'Ludhiana', language: 'hi' },
-          { id: '2', name: 'Suresh Singh', age: 38, email: 'suresh@wholesale.com', role: 'wholesaler', state: 'Haryana', region: 'Gurugram', language: 'en' },
-        ]);
       }
     }, []);
 
@@ -131,15 +147,20 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
       }
     }, [allLogins]);
 
-  // App Data (Mocking backend state)
-  const [products, setProducts] = useState<Product[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [cart, setCart] = useState<{ productId: string, quantity: number }[]>([]);
-  const [activeTab, setActiveTab] = useState<'home' | 'search' | 'cart' | 'profile' | 'new_item' | 'orders'>('home');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchHistory, setSearchHistory] = useState<string[]>([]);
-  const [activeChat, setActiveChat] = useState<string | null>(null); // Order ID
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+    // Save products on changes
+    useEffect(() => {
+      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
+    }, [products]);
+
+    // Save orders on changes
+    useEffect(() => {
+      localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
+    }, [orders]);
+
+    // Save chat on changes
+    useEffect(() => {
+      localStorage.setItem(CHAT_KEY, JSON.stringify(chatMessages));
+    }, [chatMessages]);
 
   const t = translations[lang];
 
@@ -796,7 +817,12 @@ function Dashboard({
                           filteredProducts.map((p: Product) => (
                             <div key={p.id} className="bg-white p-3 rounded-3xl shadow-sm border border-[#E2F0D9] group">
                               <div className="aspect-square bg-[#F5F9F2] rounded-2xl mb-3 relative overflow-hidden">
-                                {p.photo ? <img src={p.photo} className="w-full h-full object-cover" alt={p.name} /> : <div className="w-full h-full flex items-center justify-center text-[#4C6B36]/20"><Languages className="w-10 h-10" /></div>}
+                                <img 
+                                  src={p.photo || `https://source.unsplash.com/featured/?${p.name},crop,farm`} 
+                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                                  alt={p.name} 
+                                  referrerPolicy="no-referrer"
+                                />
                                 <button 
                                   onClick={() => addToCart(p.id)}
                                   className="absolute bottom-2 right-2 p-2 bg-[#4C6B36] text-white rounded-xl shadow-lg transform translate-y-8 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all active:scale-90"
