@@ -29,6 +29,9 @@ import {
   Bell,
   Home,
   Package,
+  PackageCheck,
+  Download,
+  Clock,
   AlertCircle
 } from 'lucide-react';
 import { translations } from './translations';
@@ -36,29 +39,119 @@ import { locations } from './locations';
 import type { User, Product, Order, ChatMessage, Language } from './types';
 import { GoogleGenAI } from "@google/genai";
 
-// Logo Component: Tractor in a Farm
-function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?: string, color?: string }) {
+// Splash Screen Component
+function SplashScreen({ onComplete }: { onComplete: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onComplete, 3500);
+    return () => clearTimeout(timer);
+  }, [onComplete]);
+
   return (
-    <div className={`relative ${className} flex items-center justify-center`}>
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-white flex flex-col items-center justify-center z-[100]"
+    >
+      <motion.div
+        initial={{ y: 50, opacity: 0, scale: 0.8 }}
+        animate={{ y: 0, opacity: 1, scale: 1 }}
+        transition={{ 
+          type: "spring",
+          stiffness: 100,
+          damping: 20,
+          duration: 0.8
+        }}
+        className="flex flex-col items-center"
+      >
+        <div className="relative mb-8">
+          <KhetNetLogo className="w-48 h-48" />
+          <motion.div 
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 1, type: "spring" }}
+            className="absolute -top-4 -right-4 bg-[#4C6B36] text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg"
+          >
+            Digital Bazaar
+          </motion.div>
+        </div>
+        
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="flex items-center gap-1"
+        >
+          <span className="text-5xl font-black tracking-tighter text-[#2D4522]">KHET</span>
+          <span className="text-5xl font-black tracking-tighter text-[#4C6B36]">NET</span>
+          <motion.div
+            initial={{ rotate: -20, opacity: 0 }}
+            animate={{ rotate: 0, opacity: 1 }}
+            transition={{ delay: 1.2 }}
+          >
+            <div className="w-6 h-6 bg-[#4C6B36] rounded-tl-full rounded-br-full" />
+          </motion.div>
+        </motion.div>
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.5 }}
+          className="mt-4 text-[#4C6B36] font-bold tracking-[0.3em] uppercase text-[10px]"
+        >
+          Connecting Bharat's Farms
+        </motion.p>
+      </motion.div>
+
+      <motion.div 
+        initial={{ width: 0 }}
+        animate={{ width: "200px" }}
+        transition={{ delay: 0.5, duration: 2 }}
+        className="absolute bottom-20 h-1 bg-[#E2F0D9] rounded-full overflow-hidden"
+      >
+        <motion.div 
+          animate={{ x: ["-100%", "100%"] }}
+          transition={{ repeat: Infinity, duration: 1.5 }}
+          className="w-1/2 h-full bg-[#4C6B36]"
+        />
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// Logo Component: Professional Modern Logo for KhetNet
+function KhetNetLogo({ className = "w-12 h-12" }: { className?: string }) {
+  return (
+    <div className={`relative ${className} overflow-hidden rounded-[25%] p-1 shadow-inner bg-white border-2 border-[#E2F0D9]`}>
       <svg viewBox="0 0 100 100" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-        {/* Background Farm/Field */}
-        <path d="M10 80 Q 50 70 90 80" stroke={color} strokeWidth="2" strokeOpacity="0.4" />
-        <path d="M10 85 Q 50 75 90 85" stroke={color} strokeWidth="2" strokeOpacity="0.3" />
-        <path d="M10 90 Q 50 80 90 90" stroke={color} strokeWidth="2" strokeOpacity="0.2" />
+        <defs>
+          <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#87CEEB" />
+            <stop offset="100%" stopColor="#E0F7FA" />
+          </linearGradient>
+        </defs>
+        <rect width="100" height="60" fill="url(#skyGrad)" />
         
-        {/* Tractor Body */}
-        <path d="M35 65 H65 V50 H55 V40 H40 V65Z" fill={color} />
-        <path d="M55 40 H75 V50 H65" stroke={color} strokeWidth="3" strokeLinecap="round" />
+        <circle cx="20" cy="20" r="8" fill="white" fillOpacity="0.6" />
+        <circle cx="30" cy="25" r="10" fill="white" fillOpacity="0.4" />
+        <circle cx="80" cy="15" r="7" fill="white" fillOpacity="0.5" />
         
-        {/* Wheels */}
-        <circle cx="42" cy="70" r="8" fill={color} />
-        <circle cx="42" cy="70" r="4" fill="white" fillOpacity="0.3" />
-        <circle cx="68" cy="70" r="6" fill={color} />
-        <circle cx="68" cy="70" r="3" fill="white" fillOpacity="0.3" />
+        <path d="M0 60 Q 50 45 100 60 V100 H0 Z" fill="#4C6B36" />
+        <path d="M0 75 Q 50 65 100 75 V100 H0 Z" fill="#5D8242" />
+        <path d="M0 85 Q 50 80 100 85 V100 H0 Z" fill="#6E994E" />
         
-        {/* Exhaust */}
-        <path d="M45 40 V30 H48" stroke={color} strokeWidth="2" strokeLinecap="round" />
-        <path d="M48 30 L52 25" stroke={color} strokeWidth="1" strokeOpacity="0.5" />
+        <path d="M20 100 Q 30 70 60 60" stroke="#D2B48C" strokeWidth="6" fill="none" />
+        
+        <g transform="translate(45, 55) scale(0.6)">
+          <rect x="10" y="15" width="40" height="20" fill="#E53935" rx="2" />
+          <rect x="15" y="5" width="20" height="15" fill="#E53935" rx="1" />
+          <rect x="18" y="7" width="14" height="10" fill="#BBDEFB" />
+          <path d="M45 15 V5" stroke="black" strokeWidth="2" />
+          <circle cx="15" cy="35" r="10" fill="#212121" />
+          <circle cx="15" cy="35" r="5" fill="#757575" />
+          <circle cx="45" cy="38" r="7" fill="#212121" />
+          <circle cx="45" cy="38" r="3" fill="#757575" />
+        </g>
       </svg>
     </div>
   );
@@ -75,7 +168,7 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
     const ORDERS_KEY = 'khetnet_orders';
     const CHAT_KEY = 'khetnet_chat';
 
-    const [stage, setStage] = useState<'language' | 'location' | 'login' | 'details' | 'category' | 'dashboard' | 'host'>('language');
+    const [stage, setStage] = useState<'splash' | 'language' | 'location' | 'login' | 'details' | 'category' | 'dashboard' | 'host'>('splash');
     const [lang, setLang] = useState<Language>('en');
     const [user, setUser] = useState<Partial<User>>({});
     const [showPassword, setShowPassword] = useState(false);
@@ -139,11 +232,21 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
           const { user: savedUser, lang: savedLang } = JSON.parse(savedSession);
           if (savedUser) setUser(savedUser);
           if (savedLang) setLang(savedLang);
-          // Always start at language on fresh load if user asks for it "in starting"
-          setStage('language');
+          
+          // Auto-login: If role is selected, jump to dashboard or host
+          if (savedUser?.role === 'host') {
+            setStage('host');
+          } else if (savedUser?.role) {
+            setStage('dashboard');
+          }
         } catch (e) {
           console.error("Error parsing saved session", e);
         }
+      }
+
+      // Request notification permission
+      if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission();
       }
     }, []);
 
@@ -190,20 +293,22 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
     e.preventDefault();
     
     // 1. Host Login Check (Absolute priority)
-    if (email.trim() === 'devilboy102030405060708090' && password === '1234vansh') {
+    const isAdmin = (email.trim().toLowerCase() === 'admin@khetnet.com' || email.trim() === 'host') && password === 'admin';
+    if (isAdmin) {
       const hostUser: User = { 
         id: 'host', 
-        name: 'Host Admin', 
-        email: email.trim(), 
-        password,
+        name: 'System Admin', 
+        email: 'admin@khetnet.com', 
+        password: 'admin',
         age: 99,
         state: 'N/A',
         region: 'N/A',
-        role: null,
+        role: 'host',
         language: lang
       };
       setUser(hostUser);
-      setStage('host');
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ user: hostUser, lang }));
+      setStage('host'); 
       return;
     }
 
@@ -299,10 +404,11 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
     try {
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `You are the KhetNet assistant. Help the user with agricultural marketplace issues. 
-          User is ${user.role || 'choosing a role'}. 
-          Language: ${lang}. 
-          User question: ${textToSubmit}`
+        contents: `You are the KhetNet Assistant. Strictly help the user ONLY with issues related to the KhetNet agricultural marketplace app. 
+          If the user asks something unrelated to farming or KhetNet app features, politely decline and steer back to the app.
+          User Role: ${user.role || 'Visitor'}.
+          Selected Language: ${lang}. 
+          Query: ${textToSubmit}`
       });
 
       const botText = response.text || "I couldn't generate a response.";
@@ -316,6 +422,10 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
   return (
     <div className="min-h-screen bg-[#FDFCF8] text-[#1D1D1D] font-sans selection:bg-[#E2F0D9]">
       <AnimatePresence mode="wait">
+        {stage === 'splash' && (
+          <SplashScreen onComplete={() => setStage('language')} />
+        )}
+
         {stage === 'language' && (
           <motion.div 
             key="language"
@@ -328,22 +438,22 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
               <KhetNetLogo className="w-20 h-20" />
             </div>
             <h1 className="text-4xl font-black tracking-tight text-[#2D3E21]">KhetNet</h1>
-            <div className="grid grid-cols-2 gap-4 w-full max-w-sm">
-              {[
-                { id: 'hi', label: 'हिंदी' },
-                { id: 'en', label: 'English' },
-                { id: 'ta', label: 'தமிழ்' },
-                { id: 'te', label: 'తెలుగు' }
-              ].map((l) => (
-                <button
-                  key={l.id}
-                  onClick={() => handleLanguageSelect(l.id as Language)}
-                  className="p-5 rounded-2xl border-2 border-[#E2F0D9] bg-white hover:border-[#4C6B36] hover:bg-[#F0F7EB] transition-all text-xl font-medium shadow-sm active:scale-95"
-                >
-                  {l.label}
-                </button>
-              ))}
-            </div>
+          <div className="grid grid-cols-2 gap-4 w-full max-w-sm">
+            {[
+              { id: 'hi', label: 'हिंदी' },
+              { id: 'en', label: 'English' },
+              { id: 'ta', label: 'தமிழ்' },
+              { id: 'te', label: 'తెలుగు' },
+            ].map((l) => (
+              <button
+                key={l.id}
+                onClick={() => handleLanguageSelect(l.id as Language)}
+                className="p-5 rounded-2xl border-2 border-[#E2F0D9] bg-white hover:border-[#4C6B36] hover:bg-[#F0F7EB] transition-all text-xl font-medium shadow-sm active:scale-95"
+              >
+                {l.label}
+              </button>
+            ))}
+          </div>
           </motion.div>
         )}
 
@@ -384,6 +494,7 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
             setProducts={setProducts}
             orders={orders}
             setOrders={setOrders}
+            allLogins={allLogins}
             cart={cart}
             setCart={setCart}
             searchQuery={searchQuery}
@@ -403,15 +514,30 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
         )}
       </AnimatePresence>
 
-      {/* AI Bot Icon */}
-      <div className="fixed bottom-24 right-6 z-50">
-        <button 
-          onClick={() => setIsAiOpen(!isAiOpen)}
-          className="bg-[#4C6B36] text-white p-4 rounded-full shadow-lg shadow-[#4C6B36]/30 hover:bg-[#3D562B] transition-all transform hover:scale-110 active:scale-95"
-        >
-          <MessageCircle className="w-6 h-6" />
-        </button>
-      </div>
+      {/* AI Bot Icon & Bubble */}
+      {stage !== 'splash' && stage !== 'language' && (
+        <div className="fixed bottom-24 right-6 z-50 flex flex-col items-end gap-2">
+          <AnimatePresence>
+            {!isAiOpen && (
+              <motion.div
+                initial={{ opacity: 0, x: 20, scale: 0.8 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 20, scale: 0.8 }}
+                className="bg-white px-4 py-2 rounded-2xl shadow-xl shadow-[#4C6B36]/10 border border-[#E2F0D9] text-[#2D3E21] text-xs font-bold whitespace-nowrap mb-2 relative"
+              >
+                {t.hi}! {t.chat_bot_help}
+                <div className="absolute right-4 -bottom-1.5 w-3 h-3 bg-white border-r border-b border-[#E2F0D9] rotate-45" />
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <button 
+            onClick={() => setIsAiOpen(!isAiOpen)}
+            className="bg-[#4C6B36] text-white p-4 rounded-full shadow-lg shadow-[#4C6B36]/30 hover:bg-[#3D562B] transition-all transform hover:scale-110 active:scale-95"
+          >
+            <MessageCircle className="w-6 h-6" />
+          </button>
+        </div>
+      )}
 
       {/* AI Bot Panel */}
       <AnimatePresence>
@@ -577,7 +703,10 @@ function LoginScreen({ t, email, setEmail, password, setPassword, showPassword, 
           </div>
         </div>
 
-        <button className="w-full py-5 rounded-2xl bg-[#4C6B36] text-white font-bold text-lg shadow-lg hover:bg-[#3D562B] transition-all active:scale-95 flex items-center justify-center gap-2">
+        <button 
+          type="submit"
+          className="w-full py-5 rounded-2xl bg-[#4C6B36] text-white font-bold text-lg shadow-lg hover:bg-[#3D562B] transition-all active:scale-95 flex items-center justify-center gap-2"
+        >
           {t.login}
           <ChevronRight className="w-5 h-5" />
         </button>
@@ -594,6 +723,21 @@ function LoginScreen({ t, email, setEmail, password, setPassword, showPassword, 
         >
           <img src="https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png" className="w-6 h-6" alt="Google" />
           {t.login_with_google}
+        </button>
+
+        <button 
+          type="button" 
+          onClick={() => {
+            setEmail('admin@khetnet.com');
+            setPassword('admin');
+            setTimeout(() => {
+               const btn = document.querySelector('form button[type="submit"]') as HTMLButtonElement;
+               if(btn) btn.click();
+            }, 100);
+          }}
+          className="w-full py-2 text-[#4C6B36] text-[10px] font-black uppercase tracking-widest hover:underline opacity-60 hover:opacity-100 transition-all"
+        >
+          Skip to Host Dashboard (Admin)
         </button>
       </form>
     </motion.div>
@@ -687,10 +831,15 @@ function CategoryScreen({ t, onSelect }: any) {
 
 // Main Dashboard Component
 function Dashboard({ 
-  t, user, setUser, activeTab, setActiveTab, products, setProducts, orders, setOrders, cart, setCart, 
+  t, user, setUser, activeTab, setActiveTab, products, setProducts, orders, setOrders, allLogins, cart, setCart, 
   searchQuery, setSearchQuery, searchHistory, setSearchHistory, logout, 
   activeChat, setActiveChat, chatMessages, setChatMessages
 }: any) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
   
   const filteredProducts = products.filter((p: Product) => 
     (searchQuery ? p.name.toLowerCase().includes(searchQuery.toLowerCase()) : true)
@@ -715,6 +864,7 @@ function Dashboard({
   const placeOrder = () => {
     const newOrders = cart.map((item: any) => {
       const product = products.find((p: Product) => p.id === item.productId);
+      const farmer = allLogins.find(u => u.id === product?.farmerId);
       return {
         id: Math.random().toString(36).substr(2, 9),
         productId: item.productId,
@@ -722,7 +872,10 @@ function Dashboard({
         wholesalerId: user.id || 'w1',
         wholesalerName: user.name || 'Wholesaler',
         farmerId: product?.farmerId || 'f1',
+        farmerName: farmer?.name || product?.farmerName || 'Farmer',
+        farmerMobile: farmer?.mobile,
         status: 'pending',
+        expiryTime: Date.now() + (4 * 60 * 60 * 1000), // 4 Hours from now
         createdAt: Date.now(),
         totalCost: (product?.costPerKg || 0) * item.quantity,
         quantity: item.quantity
@@ -733,9 +886,24 @@ function Dashboard({
     alert(t.request_sent);
   };
 
-  // Farmer specific logic
+  // Order Actions
   const handleOrderAction = (orderId: string, action: 'approved' | 'declined') => {
     setOrders(orders.map((o: Order) => o.id === orderId ? { ...o, status: action } : o));
+    if (action === 'approved') {
+      const msg = t.farmer_approved_msg;
+      alert(msg);
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("KhetNet", { body: msg });
+      }
+    }
+  };
+
+  const handleMarkReceived = (orderId: string) => {
+    setOrders(orders.map((o: Order) => o.id === orderId ? { ...o, status: 'received' } : o));
+    alert(t.order_received_msg);
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification("KhetNet", { body: t.order_received_msg });
+    }
   };
 
   return (
@@ -787,7 +955,12 @@ function Dashboard({
               order={orders.find((o: Order) => o.id === activeChat)} 
               user={user} 
               messages={chatMessages.filter((m: ChatMessage) => m.orderId === activeChat)}
-              onSend={(text: string, isLocation = false) => {
+              onSend={(text: string, isLocation = false, isReceivedSignal = false) => {
+                if (isReceivedSignal && activeChat) {
+                  handleMarkReceived(activeChat);
+                  return;
+                }
+                if (!activeChat) return;
                 const msg: ChatMessage = {
                   id: Date.now().toString(),
                   orderId: activeChat,
@@ -796,7 +969,7 @@ function Dashboard({
                   timestamp: Date.now(),
                   location: isLocation ? { lat: 0, lng: 0 } : undefined
                 };
-                setChatMessages([...chatMessages, msg]);
+                setChatMessages(prev => [...prev, msg]);
               }}
               onBack={() => setActiveChat(null)} 
             />
@@ -814,25 +987,45 @@ function Dashboard({
                         {orders.filter((o: Order) => o.farmerId === user.id && o.status === 'pending').length === 0 ? (
                           <EmptyState icon={<FileText />} text={t.no_new_orders} />
                         ) : (
-                          orders.filter((o: Order) => o.farmerId === user.id && o.status === 'pending').map((o: Order) => (
-                            <div key={o.id} className="bg-white p-5 rounded-3xl shadow-sm border border-[#E2F0D9] flex flex-col gap-4">
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <h4 className="font-bold text-lg">{o.productName}</h4>
-                                  <p className="text-sm text-gray-500">{o.wholesalerName} • {o.quantity}kg</p>
+                          orders.filter((o: Order) => o.farmerId === user.id && o.status === 'pending').map((o: Order) => {
+                            const isExpired = Date.now() > (o.expiryTime || 0);
+                            const timeLeft = (o.expiryTime || 0) - now;
+                            const hours = Math.floor(Math.max(0, timeLeft) / (1000 * 60 * 60));
+                            const minutes = Math.floor((Math.max(0, timeLeft) % (1000 * 60 * 60)) / (1000 * 60));
+                            const seconds = Math.floor((Math.max(0, timeLeft) % (1000 * 60)) / 1000);
+
+                            return (
+                              <div key={o.id} className="bg-white p-5 rounded-3xl shadow-sm border border-[#E2F0D9] flex flex-col gap-4">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <h4 className="font-bold text-lg">{o.productName}</h4>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <p className="text-sm text-gray-500">{o.wholesalerName} • {o.quantity}kg</p>
+                                      {!isExpired && (
+                                        <div className="flex flex-col gap-1">
+                                          <span className="text-[10px] w-fit bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-black animate-pulse flex items-center gap-1">
+                                            <Clock className="w-3 h-3" /> {hours}h {minutes}m {seconds}s
+                                          </span>
+                                          <p className="text-[9px] text-[#4C6B36] font-bold italic opacity-70">
+                                            {t.order_confirmation_notice}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <span className="font-bold text-[#4C6B36]">₹{o.totalCost}</span>
                                 </div>
-                                <span className="font-bold text-[#4C6B36]">₹{o.totalCost}</span>
+                                <div className="flex gap-3">
+                                  <button onClick={() => handleOrderAction(o.id, 'approved')} className="flex-1 py-3 bg-[#4C6B36] text-white rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all">
+                                    <Check className="w-4 h-4" /> {t.approve}
+                                  </button>
+                                  <button onClick={() => handleOrderAction(o.id, 'declined')} className="flex-1 py-3 bg-red-50 text-red-500 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all">
+                                    <Ban className="w-4 h-4" /> {t.decline}
+                                  </button>
+                                </div>
                               </div>
-                              <div className="flex gap-3">
-                                <button onClick={() => handleOrderAction(o.id, 'approved')} className="flex-1 py-3 bg-[#4C6B36] text-white rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all">
-                                  <Check className="w-4 h-4" /> {t.approve}
-                                </button>
-                                <button onClick={() => handleOrderAction(o.id, 'declined')} className="flex-1 py-3 bg-red-50 text-red-500 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all">
-                                  <Ban className="w-4 h-4" /> {t.decline}
-                                </button>
-                              </div>
-                            </div>
-                          ))
+                            );
+                          })
                         )}
                       </div>
 
@@ -1010,31 +1203,93 @@ function Dashboard({
                     {orders.filter((o: Order) => user.role === 'farmer' ? o.farmerId === user.id : o.wholesalerId === user.id).length === 0 ? (
                       <EmptyState icon={<FileText />} text={t.no_orders_yet} />
                     ) : (
-                      orders.filter((o: Order) => user.role === 'farmer' ? o.farmerId === user.id : o.wholesalerId === user.id).map((o: Order) => (
-                        <div key={o.id} className="bg-white p-5 rounded-3xl border border-[#E2F0D9] relative overflow-hidden group">
-                          <div className="flex justify-between items-start mb-4">
-                            <div>
-                              <h4 className="font-bold text-lg">{o.productName}</h4>
-                              <p className="text-xs text-gray-400 flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(o.createdAt).toLocaleDateString()}</p>
+                      orders.filter((o: Order) => user.role === 'farmer' ? o.farmerId === user.id : o.wholesalerId === user.id).map((o: Order) => {
+                        const isExpired = o.status === 'pending' && now > (o.expiryTime || 0);
+                        const timeLeft = (o.expiryTime || 0) - now;
+                        const hours = Math.floor(Math.max(0, timeLeft) / (1000 * 60 * 60));
+                        const minutes = Math.floor((Math.max(0, timeLeft) % (1000 * 60 * 60)) / (1000 * 60));
+                        const seconds = Math.floor((Math.max(0, timeLeft) % (1000 * 60)) / 1000);
+
+                        return (
+                          <div key={o.id} className={`bg-white p-5 rounded-3xl border border-[#E2F0D9] shadow-sm relative overflow-hidden group transition-all hover:shadow-md ${isExpired ? 'opacity-60' : ''}`}>
+                            <div className="flex justify-between items-start mb-4">
+                              <div className="flex-1">
+                                <h4 className="font-bold text-lg leading-tight truncate pr-2">{o.productName}</h4>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <p className="text-[10px] text-gray-400 font-bold flex items-center gap-1 uppercase tracking-widest"><Calendar className="w-3 h-3" /> {new Date(o.createdAt).toLocaleDateString()}</p>
+                                  {o.status === 'pending' && !isExpired && (
+                                    <div className="flex flex-col gap-1">
+                                      <span className="text-[10px] w-fit bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-black animate-pulse flex items-center gap-1">
+                                        <Clock className="w-3 h-3" /> {hours}h {minutes}m {seconds}s
+                                      </span>
+                                      <p className="text-[9px] text-[#4C6B36] font-bold italic opacity-70">
+                                        {t.order_confirmation_notice}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1 ${
+                                o.status === 'approved' ? 'bg-[#E2F0D9] text-[#4C6B36]' : 
+                                o.status === 'received' ? 'bg-[#4C6B36] text-white' :
+                                o.status === 'declined' || isExpired ? 'bg-red-50 text-red-500' : 
+                                'bg-gray-100 text-gray-500'
+                              }`}>
+                                {isExpired ? t.declined : t[o.status]}
+                                {o.status === 'approved' && <Check className="w-3 h-3" />}
+                                {o.status === 'received' && <PackageCheck className="w-3 h-3" />}
+                                {(o.status === 'declined' || isExpired) && <Ban className="w-3 h-3" />}
+                              </span>
                             </div>
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                              o.status === 'approved' ? 'bg-[#E2F0D9] text-[#4C6B36]' : 
-                              o.status === 'declined' ? 'bg-red-50 text-red-500' : 
-                              'bg-gray-100 text-gray-500'
-                            }`}>
-                              {t[o.status]}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center border-t border-[#F5F9F2] pt-4">
-                            <span className="font-bold text-[#4C6B36]">₹{o.totalCost}</span>
-                            {o.status === 'approved' && (
-                              <button onClick={() => setActiveChat(o.id)} className="flex items-center gap-2 text-sm font-bold text-[#4C6B36] hover:underline">
-                                <MessageCircle className="w-4 h-4" /> {t.chat}
+
+                            {user.role === 'farmer' && o.status === 'pending' && !isExpired && (
+                              <div className="flex gap-2 mb-4">
+                                <button 
+                                  onClick={() => handleOrderAction(o.id, 'approved')}
+                                  className="flex-1 py-3 bg-[#4C6B36] text-white rounded-2xl text-xs font-black shadow-lg shadow-[#4C6B36]/10 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+                                >
+                                  {t.approve}
+                                </button>
+                                <button 
+                                  onClick={() => handleOrderAction(o.id, 'declined')}
+                                  className="flex-1 py-3 bg-red-50 text-red-500 rounded-2xl text-xs font-black active:scale-95 transition-all uppercase tracking-widest"
+                                >
+                                  {t.decline}
+                                </button>
+                              </div>
+                            )}
+
+                            {user.role === 'wholesaler' && o.status === 'approved' && (
+                              <button 
+                                onClick={() => handleMarkReceived(o.id)}
+                                className="w-full mb-4 py-3 bg-[#4C6B36] text-white rounded-2xl text-xs font-black shadow-lg shadow-[#4C6B36]/10 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+                              >
+                                {t.mark_received} <Package className="w-4 h-4" />
                               </button>
                             )}
+
+                            <div className="flex justify-between items-center border-t border-[#F5F9F2] pt-4">
+                              <div>
+                                <span className="text-[10px] text-gray-400 font-bold uppercase block tracking-widest">{t.total_cost}</span>
+                                <span className="font-black text-[#4C6B36] text-lg">₹{o.totalCost}</span>
+                              </div>
+                              {o.status === 'approved' && (
+                                <button onClick={() => setActiveChat(o.id)} className="flex items-center gap-2 px-4 py-2 bg-[#F0F7EB] rounded-xl text-xs font-black text-[#4C6B36] hover:bg-[#E2F0D9] transition-all transform hover:scale-105 active:scale-95 uppercase tracking-widest">
+                                  <MessageCircle className="w-4 h-4" /> {t.chat}
+                                </button>
+                              )}
+                            </div>
+                            {o.status === 'approved' && user.role === 'wholesaler' && (
+                              <div className="mt-3 p-3 bg-blue-50 rounded-2xl flex items-center gap-3">
+                                <div className="p-2 bg-blue-100 rounded-xl text-blue-600">
+                                  <Bell className="w-4 h-4" />
+                                </div>
+                                <p className="text-[10px] text-blue-700 font-bold leading-tight">Farmer approved! Chat now or call from profile.</p>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </motion.div>
@@ -1177,13 +1432,15 @@ function NewItemForm({ t, onSubmit }: any) {
           <input value={name} onChange={(e) => setName(e.target.value)} className="w-full p-4 rounded-2xl border-2 border-[#E2F0D9] focus:border-[#4C6B36] outline-none transition-all" />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <div>
+          <div className="relative">
             <label className="text-xs font-bold text-[#4C6B36] uppercase tracking-widest ml-1">{t.cost_per_kg}</label>
-            <input type="number" value={cost} onChange={(e) => setCost(e.target.value)} className="w-full p-4 rounded-2xl border-2 border-[#E2F0D9] focus:border-[#4C6B36] outline-none transition-all" />
+            <input type="number" value={cost} onChange={(e) => setCost(e.target.value)} className="w-full p-4 pr-12 rounded-2xl border-2 border-[#E2F0D9] focus:border-[#4C6B36] outline-none transition-all" />
+            <span className="absolute right-4 bottom-4 text-xs font-bold text-gray-400">/kg</span>
           </div>
-          <div>
+          <div className="relative">
             <label className="text-xs font-bold text-[#4C6B36] uppercase tracking-widest ml-1">{t.max_quantity}</label>
-            <input type="number" value={qty} onChange={(e) => setQty(e.target.value)} className="w-full p-4 rounded-2xl border-2 border-[#E2F0D9] focus:border-[#4C6B36] outline-none transition-all" />
+            <input type="number" value={qty} onChange={(e) => setQty(e.target.value)} className="w-full p-4 pr-12 rounded-2xl border-2 border-[#E2F0D9] focus:border-[#4C6B36] outline-none transition-all" />
+            <span className="absolute right-4 bottom-4 text-xs font-bold text-gray-400">kg</span>
           </div>
         </div>
       </div>
@@ -1224,7 +1481,9 @@ function HostDashboard({ t, logins, onLogout }: { t: any, logins: User[], onLogo
                     <p className="text-xs text-gray-400 font-mono select-all">Pass: {login.password}</p>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                    login.role === 'farmer' ? 'bg-[#F0F7EB] text-[#4C6B36]' : 'bg-blue-50 text-blue-600'
+                    login.role === 'farmer' ? 'bg-[#F0F7EB] text-[#4C6B36]' : 
+                    login.role === 'host' ? 'bg-orange-100 text-orange-600' :
+                    'bg-blue-50 text-blue-600'
                   }`}>
                     {login.role ? t[login.role] : t.onboarding}
                   </span>
@@ -1242,6 +1501,65 @@ function HostDashboard({ t, logins, onLogout }: { t: any, logins: User[], onLogo
             </div>
           ))}
         </div>
+
+        {/* Brand Assets Section */}
+        <div className="mt-12 bg-white p-8 rounded-3xl border border-[#E2F0D9] shadow-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="bg-[#4C6B36] p-2 rounded-xl">
+              <PackageCheck className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold uppercase tracking-tight">KhetNet Brand Assets</h2>
+              <p className="text-sm text-gray-400">{t.brand_assets_desc || "Official logo and quality marks"}</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <h3 className="font-bold text-lg text-[#4C6B36]">Primary App Logo</h3>
+              <div className="bg-[#F9FBFA] p-10 rounded-2xl border border-dashed border-[#E2F0D9] flex flex-col items-center justify-center group relative overflow-hidden">
+                <KhetNetLogo className="w-48 h-48 drop-shadow-2xl" />
+                <div className="mt-6 text-center">
+                  <p className="font-black text-3xl tracking-tighter text-[#4C6B36]">KHETNET</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400 mt-1">BHARTIYA KISAN KA DIGITAL BAZAAR</p>
+                </div>
+                
+                {/* Download Overlay */}
+                <a 
+                  href="/logo.svg" 
+                  download="KhetNet_Logo.svg"
+                  className="absolute inset-0 bg-[#4C6B36]/80 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer no-underline"
+                >
+                  <Download className="w-8 h-8 text-white mb-2" />
+                  <p className="text-white font-black uppercase tracking-widest text-sm">Download Logo</p>
+                  <p className="text-white/60 text-[10px] mt-1">Vector SVG Format</p>
+                </a>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="p-5 bg-[#F5F9F2] rounded-2xl border border-[#E2F0D9]">
+                <h4 className="font-bold text-[#4C6B36] uppercase tracking-widest text-xs mb-3">Color Palette</h4>
+                <div className="flex gap-2">
+                  <div className="w-10 h-10 rounded-full bg-[#4C6B36] shadow-sm shadow-black/10" title="#4C6B36" />
+                  <div className="w-10 h-10 rounded-full bg-[#86AF49] shadow-sm shadow-black/10" title="#86AF49" />
+                  <div className="w-10 h-10 rounded-full bg-[#E2F0D9] shadow-sm shadow-black/10" title="#E2F0D9" />
+                  <div className="w-10 h-10 rounded-full bg-[#F5F9F2] shadow-sm shadow-black/10" title="#F5F9F2" />
+                  <div className="w-10 h-10 rounded-full bg-white border border-gray-100 shadow-sm shadow-black/10" title="#FFFFFF" />
+                </div>
+              </div>
+
+              <div className="p-5 bg-white rounded-2xl border border-[#E2F0D9] space-y-3">
+                <h4 className="font-bold text-[#4C6B36] uppercase tracking-widest text-xs">Login Information (Save this)</h4>
+                <div className="bg-[#F9FBFA] p-3 rounded-xl font-mono text-xs space-y-1">
+                  <p className="text-black"><span className="text-gray-400">HOST GMAIL:</span> admin@khetnet.com</p>
+                  <p className="text-black"><span className="text-gray-400">HOST PASS:</span> admin</p>
+                </div>
+                <p className="text-[9px] text-gray-400 italic">This login bypasses all onboarding checks and takes you directly to the control center.</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </motion.div>
   );
@@ -1249,42 +1567,107 @@ function HostDashboard({ t, logins, onLogout }: { t: any, logins: User[], onLogo
 
 function ChatInterface({ t, order, user, messages, onSend, onBack }: any) {
   const [text, setText] = useState('');
+  const [translationsMap, setTranslationsMap] = useState<Record<string, string>>({});
+
+  const translateMessage = async (msgId: string, originalText: string, targetLang: Language) => {
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Translate the following agricultural marketplace message to ${targetLang}. 
+        Return ONLY the translated text.
+        Message: ${originalText}`
+      });
+      const translated = response.text || originalText;
+      setTranslationsMap(prev => ({ ...prev, [msgId]: translated }));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const farmerInfo = useMemo(() => {
+    // In a real app we'd fetch this. We simulate finding the farmer in our registry
+    return order ? JSON.parse(localStorage.getItem('khetnet_logins') || '[]').find((u: any) => u.id === order.farmerId) : null;
+  }, [order]);
+
+  useEffect(() => {
+    // Auto-translate incoming messages
+    messages.forEach((m: ChatMessage) => {
+      if (m.senderId !== user.id && !translationsMap[m.id]) {
+        translateMessage(m.id, m.text, user.language);
+      }
+    });
+  }, [messages, user.language, translationsMap]);
 
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex flex-col h-[calc(100vh-140px)]">
       <div className="flex items-center gap-4 mb-6">
         <button onClick={onBack} className="p-2 bg-white rounded-xl shadow-sm"><ArrowLeft className="w-6 h-6" /></button>
-        <div>
+        <div className="flex-1">
           <h2 className="font-bold">{order?.productName}</h2>
-          <p className="text-xs text-gray-400 flex items-center gap-1"><Phone className="w-3 h-3" /> {t.connect_with} {order?.farmerId === user.id ? t.wholesaler : t.farmer}</p>
+          <div className="flex justify-between items-center">
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1">
+              <UserIcon className="w-3 h-3" /> {user.role === 'farmer' ? order?.wholesalerName : order?.farmerName}
+            </p>
+            {user.role === 'wholesaler' && (order?.farmerMobile || farmerInfo?.mobile) && (
+              <a href={`tel:${order?.farmerMobile || farmerInfo.mobile}`} className="text-[#4C6B36] flex items-center gap-1 text-[10px] font-black underline">
+                <Phone className="w-3 h-3" /> {order?.farmerMobile || farmerInfo.mobile}
+              </a>
+            )}
+          </div>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-4 p-2">
-        {messages.map((m: ChatMessage) => (
-          <div key={m.id} className={`flex ${m.senderId === user.id ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[80%] p-3 rounded-2xl shadow-sm ${m.senderId === user.id ? 'bg-[#4C6B36] text-white rounded-tr-none' : 'bg-white border border-[#E2F0D9] text-[#2D3E21] rounded-tl-none'}`}>
-              {m.text}
-              <div className="text-[8px] opacity-50 mt-1">{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+        {messages.map((m: ChatMessage) => {
+          const isSender = m.senderId === user.id;
+          const translatedText = translationsMap[m.id];
+          
+          return (
+            <div key={m.id} className={`flex ${isSender ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[80%] p-3 rounded-2xl shadow-sm ${isSender ? 'bg-[#4C6B36] text-white rounded-tr-none' : 'bg-white border border-[#E2F0D9] text-[#2D3E21] rounded-tl-none'}`}>
+                <p className="text-sm">{translatedText || m.text}</p>
+                {translatedText && (
+                  <div className="text-[8px] mt-1 italic opacity-50 flex items-center gap-1">
+                    <Languages className="w-2 h-2" /> Auto-translated
+                  </div>
+                )}
+                <div className="text-[8px] opacity-30 mt-1 text-right">{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="p-4 bg-white rounded-[32px] shadow-sm border border-[#E2F0D9] flex flex-col gap-3 mt-4">
-        <div className="flex gap-2">
-          <input 
-            value={text} 
-            onChange={(e) => setText(e.target.value)} 
-            onKeyDown={(e) => e.key === 'Enter' && text && (onSend(text), setText(''))}
-            placeholder={t.type_message} 
-            className="flex-1 bg-[#F5F9F2] border-none rounded-2xl px-5 py-3 outline-none" 
-          />
-          <button onClick={() => text && (onSend(text), setText(''))} className="p-3 bg-[#4C6B36] text-white rounded-2xl active:scale-95 transition-all"><Send className="w-5 h-5" /></button>
-        </div>
-        <button onClick={() => onSend('', true)} className="flex items-center justify-center gap-2 py-3 text-[#4C6B36] font-bold text-sm bg-[#F0F7EB] rounded-2xl active:scale-95 transition-all">
-          <MapPin className="w-4 h-4" /> {t.current_location}
-        </button>
+        {order?.status === 'received' ? (
+          <div className="py-4 px-6 bg-[#E2F0D9] rounded-2xl text-[#4C6B36] font-black text-center text-xs uppercase tracking-widest flex items-center justify-center gap-2">
+            <PackageCheck className="w-5 h-5" /> {t.order_received_msg}
+          </div>
+        ) : (
+          <>
+            {user.role === 'wholesaler' && order?.status === 'approved' && (
+              <button 
+                onClick={() => onSend('ORDER_RECEIVED_SIGNAL_INTERNAL', false, true)}
+                className="py-3 bg-[#4C6B36] text-white rounded-2xl text-[10px] font-black shadow-lg shadow-[#4C6B36]/10 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+              >
+                {t.mark_received} <Package className="w-4 h-4" />
+              </button>
+            )}
+            <div className="flex gap-2">
+              <input 
+                value={text} 
+                onChange={(e) => setText(e.target.value)} 
+                onKeyDown={(e) => e.key === 'Enter' && text && (onSend(text), setText(''))}
+                placeholder={t.type_message} 
+                className="flex-1 bg-[#F5F9F2] border-none rounded-2xl px-5 py-3 outline-none text-sm" 
+              />
+              <button onClick={() => text && (onSend(text), setText(''))} className="p-3 bg-[#4C6B36] text-white rounded-2xl active:scale-95 transition-all"><Send className="w-5 h-5" /></button>
+            </div>
+            <button onClick={() => onSend('', true)} className="flex items-center justify-center gap-2 py-3 text-[#4C6B36] font-bold text-[10px] uppercase tracking-widest bg-[#F0F7EB] rounded-2xl active:scale-95 transition-all">
+              <MapPin className="w-4 h-4" /> {t.current_location}
+            </button>
+          </>
+        )}
       </div>
     </motion.div>
   );

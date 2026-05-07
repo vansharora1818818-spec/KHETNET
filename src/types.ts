@@ -8,7 +8,7 @@ export interface User {
   email: string;
   password?: string;
   mobile?: string;
-  role: 'farmer' | 'wholesaler' | null;
+  role: 'farmer' | 'wholesaler' | 'host' | null;
   state: string;
   region: string;
   language: Language;
@@ -34,7 +34,10 @@ export interface Order {
   wholesalerId: string;
   wholesalerName: string;
   farmerId: string;
-  status: 'pending' | 'approved' | 'declined';
+  farmerName?: string;
+  farmerMobile?: string;
+  status: 'pending' | 'approved' | 'declined' | 'received';
+  expiryTime?: number;
   createdAt: number;
   totalCost: number;
   quantity: number;

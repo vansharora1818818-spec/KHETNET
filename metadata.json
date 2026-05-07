@@ -1,6 +1,6 @@
 {
   "name": "KhetNet",
   "description": "A marketplace connecting farmers and wholesalers with multi-language support, region-based matching, and AI assistance.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["notifications"],
   "majorCapabilities": []
 }
