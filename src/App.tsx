@@ -186,15 +186,12 @@ function KhetNetLogo({ className = "w-12 h-12" }: { className?: string }) {
           return JSON.parse(saved);
         } catch (e) { console.error(e); }
       }
-      return [
-        { id: '1', name: 'Ramesh Kumar', age: 45, email: 'ramesh@farm.com', password: 'pass1', role: 'farmer', state: 'Punjab', region: 'Ludhiana', language: 'hi' },
-        { id: '2', name: 'Suresh Singh', age: 38, email: 'suresh@wholesale.com', password: 'pass2', role: 'wholesaler', state: 'Haryana', region: 'Gurugram', language: 'en' },
-      ];
+      return []; // Cleared mock history
     });
 
   // App Data (Mocking backend state)
   const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('khetnet_products');
+    const saved = localStorage.getItem(PRODUCTS_KEY); // Use correct key
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -205,7 +202,7 @@ function KhetNetLogo({ className = "w-12 h-12" }: { className?: string }) {
   });
   
   const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem('khetnet_orders');
+    const saved = localStorage.getItem(ORDERS_KEY); // Use correct key
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -341,7 +338,7 @@ function KhetNetLogo({ className = "w-12 h-12" }: { className?: string }) {
     setStage('details');
   };
 
-  const handleDetailsSubmit = (name: string, age: number) => {
+  const handleDetailsSubmit = (name: string, age: number, mobile: string) => {
     if (age < 18) {
       return; // Handled by button disable but just in case
     }
@@ -351,6 +348,7 @@ function KhetNetLogo({ className = "w-12 h-12" }: { className?: string }) {
       id: Math.random().toString(36).substr(2, 9),
       name, 
       age, 
+      mobile,
       email: email.trim() || 'user@gmail.com',
       password: password || '123456', 
       state: user.state || 'Punjab',
@@ -510,7 +508,22 @@ function KhetNetLogo({ className = "w-12 h-12" }: { className?: string }) {
         )}
 
         {stage === 'host' && (
-          <HostDashboard t={t} logins={allLogins} onLogout={logout} />
+          <HostDashboard 
+            t={t} 
+            logins={allLogins} 
+            onLogout={logout} 
+            onClearAll={() => {
+              localStorage.removeItem(LOGINS_KEY);
+              localStorage.removeItem(PRODUCTS_KEY);
+              localStorage.removeItem(ORDERS_KEY);
+              localStorage.removeItem(CHAT_KEY);
+              setAllLogins([]);
+              setProducts([]);
+              setOrders([]);
+              setChatMessages([]);
+              alert("System Cleared Successfully");
+            }}
+          />
         )}
       </AnimatePresence>
 
@@ -747,6 +760,7 @@ function LoginScreen({ t, email, setEmail, password, setPassword, showPassword, 
 function DetailsScreen({ t, onSubmit }: any) {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
+  const [mobile, setMobile] = useState('');
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="p-8 h-screen flex flex-col justify-center max-w-sm mx-auto w-full">
@@ -760,6 +774,18 @@ function DetailsScreen({ t, onSubmit }: any) {
             className="w-full p-4 rounded-2xl border-2 border-[#E2F0D9] focus:border-[#4C6B36] outline-none"
             placeholder={t.name_placeholder}
           />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-bold text-[#4C6B36] ml-1">{t.mobile}</label>
+          <div className="relative group">
+            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#4C6B36] transition-colors" />
+            <input 
+              value={mobile} 
+              onChange={(e) => setMobile(e.target.value)}
+              className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-[#E2F0D9] focus:border-[#4C6B36] outline-none transition-all"
+              placeholder={t.mobile_placeholder}
+            />
+          </div>
         </div>
         <div className="space-y-2">
           <label className="text-sm font-bold text-[#4C6B36] ml-1">{t.age}</label>
@@ -783,8 +809,8 @@ function DetailsScreen({ t, onSubmit }: any) {
           )}
         </div>
         <button 
-          disabled={!name || !age || Number(age) < 18}
-          onClick={() => onSubmit(name, Number(age))}
+          disabled={!name || !age || !mobile || Number(age) < 18}
+          onClick={() => onSubmit(name, Number(age), mobile)}
           className="w-full py-5 rounded-2xl bg-[#4C6B36] text-white font-bold text-lg disabled:opacity-50 transition-all active:scale-95"
         >
           {t.next}
@@ -1451,7 +1477,7 @@ function NewItemForm({ t, onSubmit }: any) {
   );
 }
 
-function HostDashboard({ t, logins, onLogout }: { t: any, logins: User[], onLogout: () => void }) {
+function HostDashboard({ t, logins, onLogout, onClearAll }: { t: any, logins: User[], onLogout: () => void, onClearAll: () => void }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-6 min-h-screen bg-[#F9FBFA]">
       <header className="flex justify-between items-center mb-8 bg-white p-4 rounded-3xl shadow-sm border border-[#E2F0D9]">
@@ -1461,9 +1487,22 @@ function HostDashboard({ t, logins, onLogout }: { t: any, logins: User[], onLogo
           </div>
           <h1 className="text-xl font-bold">{t.host_center}</h1>
         </div>
-        <button onClick={onLogout} className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-colors">
-          <LogOut className="w-5 h-5" />
-        </button>
+        <div className="flex gap-2">
+          <button 
+            onClick={() => {
+              if (window.confirm("ARE YOU SURE? THIS WILL PERMANENTLY DELETE ALL USER ACCOUNTS, PRODUCTS, AND ORDERS.")) {
+                onClearAll();
+              }
+            }}
+            className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-colors flex items-center gap-2"
+          >
+            <Trash2 className="w-5 h-5" />
+            <span className="text-xs font-black uppercase tracking-widest hidden md:inline">{t.clear_history}</span>
+          </button>
+          <button onClick={onLogout} className="p-3 bg-gray-50 text-gray-500 rounded-xl hover:bg-gray-100 transition-colors">
+            <LogOut className="w-5 h-5" />
+          </button>
+        </div>
       </header>
 
       <div className="space-y-6">
@@ -1490,8 +1529,8 @@ function HostDashboard({ t, logins, onLogout }: { t: any, logins: User[], onLogo
                 </div>
               <div className="grid grid-cols-2 gap-2 mt-2 pt-3 border-t border-[#F5F9F2]">
                 <div>
-                  <label className="text-[10px] text-gray-400 font-bold uppercase">{t.age}</label>
-                  <p className="text-sm font-bold">{login.age}</p>
+                  <label className="text-[10px] text-gray-400 font-bold uppercase">{t.mobile}</label>
+                  <p className="text-sm font-bold">{login.mobile || 'N/A'}</p>
                 </div>
                 <div>
                   <label className="text-[10px] text-gray-400 font-bold uppercase">{t.region}</label>
