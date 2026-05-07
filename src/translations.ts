@@ -82,9 +82,11 @@ export const translations = {
     farmer_feed: "Farmer Feed",
     local_items: "Local Items",
     shared_location: "Shared location",
+    your_items: "Your Items",
     email_placeholder: "example@farm.com",
     name_placeholder: "Enter Full Name",
     age_placeholder: "Enter Age",
+    age_warning: "Your age is less than 18",
     mobile_placeholder: "e.g. 9876543210",
   },
   hi: {
@@ -169,9 +171,11 @@ export const translations = {
     farmer_feed: "किसान फीड",
     local_items: "स्थानीय वस्तुएं",
     shared_location: "साझा किया गया स्थान",
+    your_items: "आपके द्वारा जोड़े गए उत्पाद",
     email_placeholder: "example@farm.com",
     name_placeholder: "पूरा नाम दर्ज करें",
     age_placeholder: "आयु दर्ज करें",
+    age_warning: "आपकी आयु 18 वर्ष से कम है",
     mobile_placeholder: "जैसे 9876543210",
   },
   ta: {
@@ -256,9 +260,11 @@ export const translations = {
     farmer_feed: "விவசாயி தீவனம்",
     local_items: "உள்ளூர் பொருட்கள்",
     shared_location: "பகிரப்பட்ட இடம்",
+    your_items: "உங்கள் பொருட்கள்",
     email_placeholder: "example@farm.com",
     name_placeholder: "முழு பெயரை உள்ளிடவும்",
     age_placeholder: "வயதை உள்ளிடவும்",
+    age_warning: "உங்கள் வயது 18-க்கும் குறைவாக உள்ளது",
     mobile_placeholder: "உதாரணமாக 9876543210",
   },
   te: {
@@ -343,9 +349,11 @@ export const translations = {
     farmer_feed: "రైతు ఫీడ్",
     local_items: "స్థానిక వస్తువులు",
     shared_location: "భాగస్వామ్యం చేయబడిన స్థానం",
+    your_items: "మీ వస్తువులు",
     email_placeholder: "example@farm.com",
     name_placeholder: "పూర్తి పేరును నమోదు చేయండి",
     age_placeholder: "వయస్సును నమోదు చేయండి",
+    age_warning: "మీ వయస్సు 18 ఏళ్ల కంటే తక్కువ",
     mobile_placeholder: "ఉదాహరణకు 9876543210",
   }
 };

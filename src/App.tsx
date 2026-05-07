@@ -27,7 +27,9 @@ import {
   Trash2,
   Calendar,
   Bell,
-  Home
+  Home,
+  Package,
+  AlertCircle
 } from 'lucide-react';
 import { translations } from './translations';
 import { locations } from './locations';
@@ -538,12 +540,23 @@ function DetailsScreen({ t, onSubmit }: any) {
             type="number"
             value={age} 
             onChange={(e) => setAge(e.target.value)}
-            className="w-full p-4 rounded-2xl border-2 border-[#E2F0D9] focus:border-[#4C6B36] outline-none"
+            className={`w-full p-4 rounded-2xl border-2 outline-none transition-all ${
+              age && Number(age) < 18 ? 'border-red-500 bg-red-50' : 'border-[#E2F0D9] focus:border-[#4C6B36]'
+            }`}
             placeholder={t.age_placeholder}
           />
+          {age && Number(age) < 18 && (
+            <motion.p 
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="text-xs text-red-500 font-bold ml-1 flex items-center gap-1"
+            >
+              <AlertCircle className="w-3 h-3" /> {t.age_warning}
+            </motion.p>
+          )}
         </div>
         <button 
-          disabled={!name || !age}
+          disabled={!name || !age || Number(age) < 18}
           onClick={() => onSubmit(name, Number(age))}
           className="w-full py-5 rounded-2xl bg-[#4C6B36] text-white font-bold text-lg disabled:opacity-50 transition-all active:scale-95"
         >
@@ -710,34 +723,65 @@ function Dashboard({
               {activeTab === 'home' && (
                 <motion.div key="home" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
                   {user.role === 'farmer' ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-bold">{t.new_orders}</h2>
-                        <span className="text-xs font-bold text-[#4C6B36] bg-[#F0F7EB] px-2 py-1 rounded-full uppercase">{t.farmer_feed}</span>
-                      </div>
-                      {orders.filter((o: Order) => o.farmerId === user.id && o.status === 'pending').length === 0 ? (
-                        <EmptyState icon={<FileText />} text={t.no_new_orders} />
-                      ) : (
-                        orders.filter((o: Order) => o.farmerId === user.id && o.status === 'pending').map((o: Order) => (
-                          <div key={o.id} className="bg-white p-5 rounded-3xl shadow-sm border border-[#E2F0D9] flex flex-col gap-4">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <h4 className="font-bold text-lg">{o.productName}</h4>
-                                <p className="text-sm text-gray-500">{o.wholesalerName} • {o.quantity}kg</p>
+                    <div className="space-y-6">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h2 className="text-xl font-bold">{t.new_orders}</h2>
+                          <span className="text-xs font-bold text-[#4C6B36] bg-[#F0F7EB] px-2 py-1 rounded-full uppercase">{t.farmer_feed}</span>
+                        </div>
+                        {orders.filter((o: Order) => o.farmerId === user.id && o.status === 'pending').length === 0 ? (
+                          <EmptyState icon={<FileText />} text={t.no_new_orders} />
+                        ) : (
+                          orders.filter((o: Order) => o.farmerId === user.id && o.status === 'pending').map((o: Order) => (
+                            <div key={o.id} className="bg-white p-5 rounded-3xl shadow-sm border border-[#E2F0D9] flex flex-col gap-4">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <h4 className="font-bold text-lg">{o.productName}</h4>
+                                  <p className="text-sm text-gray-500">{o.wholesalerName} • {o.quantity}kg</p>
+                                </div>
+                                <span className="font-bold text-[#4C6B36]">₹{o.totalCost}</span>
                               </div>
-                              <span className="font-bold text-[#4C6B36]">₹{o.totalCost}</span>
+                              <div className="flex gap-3">
+                                <button onClick={() => handleOrderAction(o.id, 'approved')} className="flex-1 py-3 bg-[#4C6B36] text-white rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all">
+                                  <Check className="w-4 h-4" /> {t.approve}
+                                </button>
+                                <button onClick={() => handleOrderAction(o.id, 'declined')} className="flex-1 py-3 bg-red-50 text-red-500 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all">
+                                  <Ban className="w-4 h-4" /> {t.decline}
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex gap-3">
-                              <button onClick={() => handleOrderAction(o.id, 'approved')} className="flex-1 py-3 bg-[#4C6B36] text-white rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all">
-                                <Check className="w-4 h-4" /> {t.approve}
-                              </button>
-                              <button onClick={() => handleOrderAction(o.id, 'declined')} className="flex-1 py-3 bg-red-50 text-red-500 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all">
-                                <Ban className="w-4 h-4" /> {t.decline}
-                              </button>
-                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h2 className="text-xl font-bold">{t.your_items}</h2>
+                        </div>
+                        {products.filter((p: Product) => p.farmerId === user.id).length === 0 ? (
+                          <EmptyState icon={<Package />} text={t.no_products} />
+                        ) : (
+                          <div className="grid grid-cols-2 gap-4">
+                            {products.filter((p: Product) => p.farmerId === user.id).map((p: Product) => (
+                              <div key={p.id} className="bg-white p-3 rounded-3xl shadow-sm border border-[#E2F0D9] group">
+                                <div className="aspect-square bg-[#F5F9F2] rounded-2xl mb-3 flex items-center justify-center overflow-hidden">
+                                  <img 
+                                    src={`https://source.unsplash.com/featured/?${p.name},crop,farm`} 
+                                    alt={p.name}
+                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                </div>
+                                <h4 className="font-bold text-sm">{p.name}</h4>
+                                <div className="flex justify-between items-center mt-1">
+                                  <span className="text-xs text-gray-400">{p.maxQuantity}kg</span>
+                                  <span className="text-sm font-bold text-[#4C6B36]">₹{p.costPerKg}/kg</span>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        ))
-                      )}
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-4">
