@@ -257,25 +257,6 @@ function KhetNetLogo({ className = "w-12 h-12" }: { className?: string }) {
       localStorage.setItem(LOGINS_KEY, JSON.stringify(allLogins));
     }, [allLogins]);
 
-    // ONE-TIME RESET: Clear all existing history once as requested by user
-    useEffect(() => {
-      const isReset = localStorage.getItem('khetnet_v3_reset');
-      if (!isReset) {
-        localStorage.removeItem(LOGINS_KEY);
-        localStorage.removeItem(PRODUCTS_KEY);
-        localStorage.removeItem(ORDERS_KEY);
-        localStorage.removeItem(CHAT_KEY);
-        localStorage.removeItem(SESSION_KEY);
-        localStorage.setItem('khetnet_v3_reset', 'true');
-        setAllLogins([]);
-        setProducts([]);
-        setOrders([]);
-        setChatMessages([]);
-        setUser({});
-        setStage('splash');
-      }
-    }, []);
-
     // Save products on changes
     useEffect(() => {
       localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
@@ -530,15 +511,14 @@ function KhetNetLogo({ className = "w-12 h-12" }: { className?: string }) {
             logins={allLogins} 
             onLogout={logout} 
             onClearAll={() => {
-              localStorage.removeItem(LOGINS_KEY);
-              localStorage.removeItem(PRODUCTS_KEY);
-              localStorage.removeItem(ORDERS_KEY);
-              localStorage.removeItem(CHAT_KEY);
+              localStorage.clear();
               setAllLogins([]);
               setProducts([]);
               setOrders([]);
               setChatMessages([]);
-              alert("System Cleared Successfully");
+              setUser({});
+              alert("System Cleared Successfully. Returning to Start.");
+              setStage('splash');
             }}
           />
         )}
@@ -1303,12 +1283,29 @@ function Dashboard({
                             )}
 
                             {user.role === 'wholesaler' && o.status === 'approved' && (
-                              <button 
-                                onClick={() => handleMarkReceived(o.id)}
-                                className="w-full mb-4 py-3 bg-[#4C6B36] text-white rounded-2xl text-xs font-black shadow-lg shadow-[#4C6B36]/10 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
-                              >
-                                {t.mark_received} <Package className="w-4 h-4" />
-                              </button>
+                              <div className="mb-4 space-y-3">
+                                <button 
+                                  onClick={() => handleMarkReceived(o.id)}
+                                  className="w-full py-3 bg-[#4C6B36] text-white rounded-2xl text-xs font-black shadow-lg shadow-[#4C6B36]/10 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+                                >
+                                  {t.mark_received} <PackageCheck className="w-4 h-4" />
+                                </button>
+                                
+                                <div className="p-4 bg-[#F0F7EB] rounded-2xl border border-[#E2F0D9] flex items-center justify-between group/contact">
+                                  <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white rounded-xl shadow-sm">
+                                      <Phone className="w-4 h-4 text-[#4C6B36]" />
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-none mb-1">{t.farmer_contact}</p>
+                                      <p className="text-sm font-black text-[#4C6B36]">{o.farmerMobile || 'N/A'}</p>
+                                    </div>
+                                  </div>
+                                  <a href={`tel:${o.farmerMobile}`} className="p-2 bg-[#4C6B36] text-white rounded-xl shadow-md opacity-0 group-hover/contact:opacity-100 transition-all active:scale-90">
+                                    <Phone className="w-4 h-4" />
+                                  </a>
+                                </div>
+                              </div>
                             )}
 
                             <div className="flex justify-between items-center border-t border-[#F5F9F2] pt-4">
@@ -1322,12 +1319,13 @@ function Dashboard({
                                 </button>
                               )}
                             </div>
+
                             {o.status === 'approved' && user.role === 'wholesaler' && (
                               <div className="mt-3 p-3 bg-blue-50 rounded-2xl flex items-center gap-3">
                                 <div className="p-2 bg-blue-100 rounded-xl text-blue-600">
                                   <Bell className="w-4 h-4" />
                                 </div>
-                                <p className="text-[10px] text-blue-700 font-bold leading-tight">Farmer approved! Chat now or call from profile.</p>
+                                <p className="text-[10px] text-blue-700 font-bold leading-tight">{t.contact_unlocked}</p>
                               </div>
                             )}
                           </div>
@@ -1507,9 +1505,7 @@ function HostDashboard({ t, logins, onLogout, onClearAll }: { t: any, logins: Us
         <div className="flex gap-2">
           <button 
             onClick={() => {
-              if (window.confirm("ARE YOU SURE? THIS WILL PERMANENTLY DELETE ALL USER ACCOUNTS, PRODUCTS, AND ORDERS.")) {
-                onClearAll();
-              }
+              onClearAll();
             }}
             className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-colors flex items-center gap-2"
           >

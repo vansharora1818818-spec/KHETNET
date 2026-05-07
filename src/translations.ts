@@ -14,6 +14,7 @@ export const translations = {
     select_category: "Are you a Farmer or a Wholesaler?",
     farmer: "Farmer",
     wholesaler: "Wholesaler",
+    host: "Administrator",
     home: "Home",
     search: "Search",
     cart: "Cart",
@@ -94,6 +95,8 @@ export const translations = {
     mobile_placeholder: "e.g. 9876543210",
     order_confirmation_notice: "If the order is confirmed, you will be notified.",
     brand_assets_desc: "Official logo and quality marks",
+    farmer_contact: "Farmer's Contact",
+    contact_unlocked: "Farmer's contact details are now visible.",
   },
   hi: {
     select_language: "भाषा चुनें",
@@ -109,6 +112,7 @@ export const translations = {
     select_category: "क्या आप किसान हैं या थोक व्यापारी?",
     farmer: "किसान",
     wholesaler: "थोक व्यापारी",
+    host: "प्रशासक",
     home: "मुख्य पृष्ठ",
     search: "खोजें",
     cart: "कार्ट",
@@ -189,6 +193,8 @@ export const translations = {
     mobile_placeholder: "जैसे 9876543210",
     order_confirmation_notice: "यदि ऑर्डर की पुष्टि हो जाती है, तो आपको सूचित किया जाएगा।",
     brand_assets_desc: "आधिकारिक लोगो और गुणवत्ता चिह्न",
+    farmer_contact: "किसान का संपर्क",
+    contact_unlocked: "किसान के संपर्क विवरण अब दिखाई दे रहे हैं।",
   },
   ta: {
     select_language: "மொழியைத் தேர்ந்தெடுக்கவும்",
@@ -204,6 +210,7 @@ export const translations = {
     select_category: "நீங்கள் விவசாயியா அல்லது மொத்த வியாபாரியா?",
     farmer: "விவசாயி",
     wholesaler: "மொத்த வியாபாரி",
+    host: "நிர்வாகி",
     home: "முகப்பு",
     search: "தேடு",
     cart: "கூடை",
@@ -284,6 +291,8 @@ export const translations = {
     mobile_placeholder: "உதாரணமாக 9876543210",
     order_confirmation_notice: "ஆர்டர் உறுதிசெய்யப்பட்டால், உங்களுக்குத் தெரிவிக்கப்படும்.",
     brand_assets_desc: "அதிகாரப்பூர்வ லோகோ மற்றும் தரக் గుర్తులు",
+    farmer_contact: "விவசாயியின் தொடர்பு",
+    contact_unlocked: "விவசாயியின் தொடர்பு விவரங்கள் இப்போது கிடைக்கின்றன.",
   },
   te: {
     select_language: "భాషను ఎంచుకోండి",
@@ -299,6 +308,7 @@ export const translations = {
     select_category: "మీరు రైతు లేదా హోల్‌సేలర్?",
     farmer: "రైతు",
     wholesaler: "హోల్‌సేలర్",
+    host: "నిర్వాహకుడు",
     home: "హోమ్",
     search: "వెతకండి",
     cart: "కార్ట్",
@@ -379,5 +389,7 @@ export const translations = {
     mobile_placeholder: "ఉదాహరణకు 9876543210",
     order_confirmation_notice: "ఆర్డర్ ధృవీకరించబడితే, మీకు తెలియజేయబడుతుంది.",
     brand_assets_desc: "అధికారిక లోగో మరియు నాణ్యత గుర్తులు",
+    farmer_contact: "రైతు సంప్రదింపు",
+    contact_unlocked: "రైతు సంప్రదింపు వివరాలు ఇప్పుడు కనిపిస్తాయి.",
   }
 };
