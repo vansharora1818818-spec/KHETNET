@@ -102,11 +102,24 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
   // App Data (Mocking backend state)
   const [products, setProducts] = useState<Product[]>(() => {
     const saved = localStorage.getItem('khetnet_products');
-    return saved ? JSON.parse(saved) : [];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) { return []; }
+    }
+    return [];
   });
+  
   const [orders, setOrders] = useState<Order[]>(() => {
     const saved = localStorage.getItem('khetnet_orders');
-    return saved ? JSON.parse(saved) : [];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) { return []; }
+    }
+    return [];
   });
   const [cart, setCart] = useState<{ productId: string, quantity: number }[]>([]);
   const [activeTab, setActiveTab] = useState<'home' | 'search' | 'cart' | 'profile' | 'new_item' | 'orders'>('home');
@@ -123,10 +136,11 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
       const savedSession = localStorage.getItem(SESSION_KEY);
       if (savedSession) {
         try {
-          const { user: savedUser, stage: savedStage, lang: savedLang } = JSON.parse(savedSession);
+          const { user: savedUser, lang: savedLang } = JSON.parse(savedSession);
           if (savedUser) setUser(savedUser);
-          if (savedStage) setStage(savedStage);
           if (savedLang) setLang(savedLang);
+          // Always start at language on fresh load if user asks for it "in starting"
+          setStage('language');
         } catch (e) {
           console.error("Error parsing saved session", e);
         }
@@ -135,10 +149,8 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
 
     // Save session on changes
     useEffect(() => {
-      if (stage !== 'language') {
-        localStorage.setItem(SESSION_KEY, JSON.stringify({ user, stage, lang }));
-      }
-    }, [user, stage, lang]);
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ user, lang }));
+    }, [user, lang]);
 
     // Save logins on changes
     useEffect(() => {
@@ -201,12 +213,12 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
       // Preserve current chosen location if they selected it this session, otherwise use stored
       const mergedUser = { 
         ...existingUser, 
-        state: user.state || existingUser.state, 
-        region: user.region || existingUser.region,
+        state: user.state && user.state !== 'N/A' ? user.state : existingUser.state, 
+        region: user.region && user.region !== 'N/A' ? user.region : existingUser.region,
         language: lang 
       };
       setUser(mergedUser);
-      if (existingUser.role) {
+      if (mergedUser.role) {
         setStage('dashboard');
         setActiveTab('home');
       } else {
@@ -681,7 +693,6 @@ function Dashboard({
 }: any) {
   
   const filteredProducts = products.filter((p: Product) => 
-    p.state === user.state && p.region === user.region &&
     (searchQuery ? p.name.toLowerCase().includes(searchQuery.toLowerCase()) : true)
   );
 
@@ -843,8 +854,9 @@ function Dashboard({
                                     referrerPolicy="no-referrer"
                                   />
                                 </div>
-                                <h4 className="font-bold text-sm">{p.name}</h4>
-                                <div className="flex justify-between items-center mt-1">
+                                <h4 className="font-bold text-sm truncate">{p.name}</h4>
+                                <p className="text-[10px] text-gray-400 font-medium truncate mb-1">{p.region}</p>
+                                <div className="flex justify-between items-center mt-auto">
                                   <span className="text-xs text-gray-400">{p.maxQuantity}kg</span>
                                   <span className="text-sm font-bold text-[#4C6B36]">₹{p.costPerKg}/kg</span>
                                 </div>
@@ -886,6 +898,7 @@ function Dashboard({
                                 </button>
                               </div>
                               <h4 className="font-bold truncate px-1">{p.name}</h4>
+                              <p className="text-[10px] text-gray-400 truncate px-1 font-medium">{p.region}, {p.state}</p>
                               <p className="text-xs text-gray-400 truncate px-1 mb-2">{p.farmerName}</p>
                               <div className="flex items-center justify-between px-1">
                                 <span className="font-bold text-[#4C6B36]">₹{p.costPerKg} /kg</span>
