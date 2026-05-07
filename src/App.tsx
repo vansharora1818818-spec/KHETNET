@@ -254,10 +254,27 @@ function KhetNetLogo({ className = "w-12 h-12" }: { className?: string }) {
 
     // Save logins on changes
     useEffect(() => {
-      if (allLogins.length > 0) {
-        localStorage.setItem(LOGINS_KEY, JSON.stringify(allLogins));
-      }
+      localStorage.setItem(LOGINS_KEY, JSON.stringify(allLogins));
     }, [allLogins]);
+
+    // ONE-TIME RESET: Clear all existing history once as requested by user
+    useEffect(() => {
+      const isReset = localStorage.getItem('khetnet_v3_reset');
+      if (!isReset) {
+        localStorage.removeItem(LOGINS_KEY);
+        localStorage.removeItem(PRODUCTS_KEY);
+        localStorage.removeItem(ORDERS_KEY);
+        localStorage.removeItem(CHAT_KEY);
+        localStorage.removeItem(SESSION_KEY);
+        localStorage.setItem('khetnet_v3_reset', 'true');
+        setAllLogins([]);
+        setProducts([]);
+        setOrders([]);
+        setChatMessages([]);
+        setUser({});
+        setStage('splash');
+      }
+    }, []);
 
     // Save products on changes
     useEffect(() => {
@@ -1533,9 +1550,13 @@ function HostDashboard({ t, logins, onLogout, onClearAll }: { t: any, logins: Us
                   <p className="text-sm font-bold">{login.mobile || 'N/A'}</p>
                 </div>
                 <div>
-                  <label className="text-[10px] text-gray-400 font-bold uppercase">{t.region}</label>
-                  <p className="text-sm font-bold truncate">{login.region}, {login.state}</p>
+                  <label className="text-[10px] text-gray-400 font-bold uppercase">{t.age}</label>
+                  <p className="text-sm font-bold">{login.age}</p>
                 </div>
+              </div>
+              <div className="mt-2 pt-2 border-t border-dashed border-[#F5F9F2] flex justify-between items-center text-[10px]">
+                <span className="text-gray-400 font-bold uppercase">{t.region}</span>
+                <span className="font-bold text-[#4C6B36]">{login.region}, {login.state}</span>
               </div>
             </div>
           ))}
