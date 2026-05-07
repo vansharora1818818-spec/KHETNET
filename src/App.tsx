@@ -177,18 +177,35 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Host Login Check
-    if (email === 'devilboy102030405060708090' && password === '1234vansh') {
-      const hostUser: Partial<User> = { id: 'host', name: 'Host Admin', email, role: null };
+    // 1. Host Login Check (Absolute priority)
+    if (email.trim() === 'devilboy102030405060708090' && password === '1234vansh') {
+      const hostUser: User = { 
+        id: 'host', 
+        name: 'Host Admin', 
+        email: email.trim(), 
+        password,
+        age: 99,
+        state: 'N/A',
+        region: 'N/A',
+        role: null,
+        language: lang
+      };
       setUser(hostUser);
       setStage('host');
       return;
     }
 
-    // Check if user already exists
-    const existingUser = allLogins.find(u => u.email === email && u.password === password);
+    // 2. Existing User Check (Skip onboarding if found)
+    const existingUser = allLogins.find(u => u.email.trim().toLowerCase() === email.trim().toLowerCase() && u.password === password);
     if (existingUser) {
-      setUser(existingUser);
+      // Preserve current chosen location if they selected it this session, otherwise use stored
+      const mergedUser = { 
+        ...existingUser, 
+        state: user.state || existingUser.state, 
+        region: user.region || existingUser.region,
+        language: lang 
+      };
+      setUser(mergedUser);
       if (existingUser.role) {
         setStage('dashboard');
         setActiveTab('home');
@@ -198,6 +215,7 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
       return;
     }
     
+    // 3. New User Flow
     setStage('details');
   };
 
@@ -208,27 +226,43 @@ function KhetNetLogo({ className = "w-12 h-12", color = "white" }: { className?:
 
   const handleDetailsSubmit = (name: string, age: number) => {
     if (age < 18) {
-      alert(t.age_error);
-      return;
+      return; // Handled by button disable but just in case
     }
+    
+    // Create new user base
     const newUser: User = { 
       id: Math.random().toString(36).substr(2, 9),
       name, 
       age, 
-      email: email || 'user@gmail.com',
+      email: email.trim() || 'user@gmail.com',
       password: password || '123456', 
       state: user.state || 'Punjab',
       region: user.region || 'Ludhiana',
       language: lang,
       role: null
     };
+
     setUser(newUser);
-    setAllLogins(prev => [...prev, newUser]);
+    // Add to registry early
+    setAllLogins(prev => [...prev.filter(u => u.email !== newUser.email), newUser]);
     setStage('category');
   };
 
   const handleCategorySelect = (role: 'farmer' | 'wholesaler') => {
-    setUser(prev => ({ ...prev, role }));
+    // Functional update to ensure we have the latest user from details stage
+    setUser(current => {
+      if (!current) return current;
+      const updatedUser = { ...current, role } as User;
+      
+      // Update registry with complete user
+      setAllLogins(prev => {
+        const filtered = prev.filter(u => u.email !== updatedUser.email);
+        return [...filtered, updatedUser];
+      });
+
+      return updatedUser;
+    });
+
     setStage('dashboard');
     setActiveTab('home');
   };
@@ -828,7 +862,12 @@ function Dashboard({
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         {filteredProducts.length === 0 ? (
-                          <div className="col-span-2 py-12"><EmptyState icon={<ShoppingCart />} text={t.no_items_region} /></div>
+                          <div className="col-span-2 py-12 text-center space-y-4">
+                            <EmptyState icon={<ShoppingCart />} text={t.no_items_region} />
+                            <p className="text-[10px] text-gray-300 font-bold uppercase tracking-widest">
+                              {t.region}: {user.region}, {user.state}
+                            </p>
+                          </div>
                         ) : (
                           filteredProducts.map((p: Product) => (
                             <div key={p.id} className="bg-white p-3 rounded-3xl shadow-sm border border-[#E2F0D9] group">
