@@ -18,6 +18,7 @@ export interface Product {
   id: string;
   farmerId: string;
   farmerName: string;
+  farmerMobile?: string;
   name: string;
   photo: string;
   costPerKg: number;

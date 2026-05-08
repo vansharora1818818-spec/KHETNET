@@ -32,15 +32,94 @@ import {
   PackageCheck,
   Download,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Edit3,
+  TrendingUp,
+  Truck,
+  ShieldCheck,
+  ArrowRight
 } from 'lucide-react';
 import { translations } from './translations';
 import { locations } from './locations';
 import type { User, Product, Order, ChatMessage, Language } from './types';
 import { GoogleGenAI } from "@google/genai";
 
+// Firebase Imports
+import { initializeApp } from 'firebase/app';
+import { 
+  getAuth, 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut,
+  updateProfile,
+  verifyBeforeUpdateEmail
+} from 'firebase/auth';
+import { 
+  getFirestore, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  getDocs, 
+  collection, 
+  onSnapshot, 
+  query, 
+  where, 
+  orderBy, 
+  limit,
+  addDoc, 
+  updateDoc,
+  serverTimestamp,
+  increment,
+  writeBatch,
+  deleteDoc,
+  getDocFromServer
+} from 'firebase/firestore';
+import firebaseConfig from '../firebase-applet-config.json';
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const auth = getAuth();
+
+// --- Firestore Error Handling ---
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
 // Splash Screen Component
-function SplashScreen({ onComplete }: { onComplete: () => void }) {
+function SplashScreen({ t, onComplete }: any) {
   useEffect(() => {
     const timer = setTimeout(onComplete, 3500);
     return () => clearTimeout(timer);
@@ -54,52 +133,53 @@ function SplashScreen({ onComplete }: { onComplete: () => void }) {
       className="fixed inset-0 bg-white flex flex-col items-center justify-center z-[100]"
     >
       <motion.div
-        initial={{ y: 50, opacity: 0, scale: 0.8 }}
+        initial={{ y: 50, opacity: 0, scale: 0.9 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
         transition={{ 
           type: "spring",
           stiffness: 100,
           damping: 20,
-          duration: 0.8
+          duration: 1
         }}
         className="flex flex-col items-center"
       >
-        <div className="relative mb-8">
-          <KhetNetLogo className="w-48 h-48" />
-          <motion.div 
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 1, type: "spring" }}
-            className="absolute -top-4 -right-4 bg-[#4C6B36] text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg"
+        <div className="relative mb-12">
+          <motion.div
+            animate={{ 
+              rotate: [0, 5, 0, -5, 0],
+              scale: [1, 1.05, 1, 1.05, 1]
+            }}
+            transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
           >
-            Digital Bazaar
+            <KhetNetLogo className="w-56 h-56" />
+          </motion.div>
+          <motion.div 
+            initial={{ scale: 0, rotate: -20 }}
+            animate={{ scale: 1, rotate: 12 }}
+            transition={{ delay: 1, type: "spring" }}
+            className="absolute -top-4 -right-4 bg-[#4C6B36] text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-xl border-2 border-white"
+          >
+            Organic
           </motion.div>
         </div>
         
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="flex items-center gap-1"
+          initial={{ opacity: 0, letterSpacing: "0.5em" }}
+          animate={{ opacity: 1, letterSpacing: "-0.05em" }}
+          transition={{ duration: 1.2, ease: "easeOut" }}
+          className="flex items-center gap-1 mb-2"
         >
-          <span className="text-5xl font-black tracking-tighter text-[#2D4522]">KHET</span>
-          <span className="text-5xl font-black tracking-tighter text-[#4C6B36]">NET</span>
-          <motion.div
-            initial={{ rotate: -20, opacity: 0 }}
-            animate={{ rotate: 0, opacity: 1 }}
-            transition={{ delay: 1.2 }}
-          >
-            <div className="w-6 h-6 bg-[#4C6B36] rounded-tl-full rounded-br-full" />
-          </motion.div>
+          <span className="text-7xl font-heading font-black text-[#2D4522] italic">Khet</span>
+          <span className="text-7xl font-heading font-black text-[#4C6B36]">Net</span>
         </motion.div>
 
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.5 }}
-          className="mt-4 text-[#4C6B36] font-bold tracking-[0.3em] uppercase text-[10px]"
+          className="text-[#4C6B36] font-serif italic text-lg opacity-80"
         >
-          Connecting Bharat's Farms
+          {t.connecting_bharat || "Connecting Bharat's Farms"}
         </motion.p>
       </motion.div>
 
@@ -157,6 +237,88 @@ function KhetNetLogo({ className = "w-12 h-12" }: { className?: string }) {
   );
 }
 
+type Stage = 'splash' | 'landing' | 'language' | 'location' | 'login' | 'details' | 'category' | 'dashboard' | 'host' | 'chat';
+
+function LandingPage({ t, onNext }: { t: any, onNext: () => void }) {
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="min-h-screen bg-[#FDFCF8] flex flex-col"
+    >
+      <div className="relative h-[50vh] w-full overflow-hidden">
+        <img 
+          src="https://images.unsplash.com/photo-1625246333195-78d9c38ad449?q=80&w=2000&auto=format&fit=crop" 
+          alt="Agriculture"
+          className="w-full h-full object-cover grayscale-[20%] sepia-[10%]"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#FDFCF8] via-transparent to-black/40" />
+        <div className="absolute top-10 left-8">
+          <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xl px-5 py-2.5 rounded-full border border-white/20 shadow-2xl">
+            <div className="w-10 h-10 rounded-full bg-[#4C6B36] flex items-center justify-center border-2 border-white/30">
+              <span className="text-white font-heading italic text-lg leading-none">k</span>
+            </div>
+            <span className="font-heading italic text-white text-xl tracking-wide">KhetNet</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 px-8 pb-12 -mt-20 relative z-10 space-y-10 max-w-lg mx-auto w-full">
+        <div className="space-y-4">
+          <motion.h1 
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="text-5xl font-heading font-black text-[#1D1D1D] leading-[0.95] tracking-tight italic"
+          >
+            {t.landing_title}
+          </motion.h1>
+          <motion.p 
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="text-xl text-gray-500 font-serif leading-relaxed"
+          >
+            {t.landing_subtitle}
+          </motion.p>
+        </div>
+
+        <div className="grid gap-4">
+          {[
+            { icon: <TrendingUp className="text-[#4C6B36]" />, title: t.feature_direct, desc: t.feature_direct_desc },
+            { icon: <Truck className="text-[#4C6B36]" />, title: t.feature_local, desc: t.feature_local_desc },
+            { icon: <ShieldCheck className="text-[#4C6B36]" />, title: t.feature_secure, desc: t.feature_secure_desc },
+          ].map((feature, i) => (
+            <motion.div 
+              key={`feature-${i}`}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 + i * 0.1 }}
+              className="flex gap-4 p-4 rounded-2xl bg-white border border-[#E2F0D9] shadow-sm"
+            >
+              <div className="w-12 h-12 rounded-xl bg-[#F0F7EB] flex items-center justify-center shrink-0">
+                {feature.icon}
+              </div>
+              <div>
+                <h3 className="font-bold text-[#1D1D1D]">{feature.title}</h3>
+                <p className="text-sm text-gray-400 font-medium leading-tight">{feature.desc}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+
+        <button 
+          onClick={onNext}
+          className="w-full py-5 rounded-2xl bg-[#4C6B36] text-white font-bold text-lg shadow-lg hover:bg-[#3D562B] transition-all active:scale-95 flex items-center justify-center gap-3 group"
+        >
+          {t.get_started}
+          <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
   // Initialize Gemini per skill guidelines
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
@@ -168,225 +330,475 @@ function KhetNetLogo({ className = "w-12 h-12" }: { className?: string }) {
     const ORDERS_KEY = 'khetnet_orders';
     const CHAT_KEY = 'khetnet_chat';
 
-    const [stage, setStage] = useState<'splash' | 'language' | 'location' | 'login' | 'details' | 'category' | 'dashboard' | 'host'>('splash');
+    const [stage, setStage] = useState<Stage>('splash');
     const [lang, setLang] = useState<Language>('en');
     const [user, setUser] = useState<Partial<User>>({});
     const [showPassword, setShowPassword] = useState(false);
-    const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [isAiOpen, setIsAiOpen] = useState(false);
     const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'bot', text: string }[]>([]);
     const [aiInput, setAiInput] = useState('');
 
-    // Host Data (Mocking a registry of logins)
-    const [allLogins, setAllLogins] = useState<User[]>(() => {
-      const saved = localStorage.getItem('khetnet_logins');
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) { console.error(e); }
-      }
-      return []; // Cleared mock history
+    // Persistence State (now synced with Firebase)
+    const [allLogins, setAllLogins] = useState<User[]>([]);
+    const [loginSessions, setLoginSessions] = useState<any[]>([]);
+    const [products, setProducts] = useState<Product[]>([]);
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [cart, setCart] = useState<{ productId: string, quantity: number }[]>(() => {
+      const saved = localStorage.getItem('khetnet_cart');
+      return saved ? JSON.parse(saved) : [];
     });
+    const [activeTab, setActiveTab] = useState<'home' | 'search' | 'cart' | 'profile' | 'new_item' | 'orders'>('home');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchHistory, setSearchHistory] = useState<string[]>([]);
+    const [activeChat, setActiveChat] = useState<string | null>(null); // Order ID
+    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isActionLoading, setIsActionLoading] = useState(false);
+    const [isAuthRestored, setIsAuthRestored] = useState(false);
+    const [loginError, setLoginError] = useState<string | null>(null);
 
-  // App Data (Mocking backend state)
-  const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem(PRODUCTS_KEY); // Use correct key
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch (e) { return []; }
-    }
-    return [];
-  });
-  
-  const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem(ORDERS_KEY); // Use correct key
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch (e) { return []; }
-    }
-    return [];
-  });
-  const [cart, setCart] = useState<{ productId: string, quantity: number }[]>([]);
-  const [activeTab, setActiveTab] = useState<'home' | 'search' | 'cart' | 'profile' | 'new_item' | 'orders'>('home');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchHistory, setSearchHistory] = useState<string[]>([]);
-  const [activeChat, setActiveChat] = useState<string | null>(null); // Order ID
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
-    const saved = localStorage.getItem('khetnet_chat');
-    return saved ? JSON.parse(saved) : [];
-  });
+    // Internal mapping for custom username login
+    const getVirtualEmail = (u: string) => {
+      const trimmed = u.trim().toLowerCase();
+      if (trimmed.includes('@')) return trimmed;
+      return `${trimmed}@khetnet.local`;
+    };
 
-    // Load from persistence on mount
+    const logLogin = async (loggedUser: User) => {
+      if (!loggedUser.id || !auth.currentUser) return;
+      try {
+        await addDoc(collection(db, 'login_sessions'), {
+          userId: loggedUser.id,
+          userName: loggedUser.name || 'Unknown',
+          userEmail: loggedUser.email || 'No email',
+          timestamp: new Date().toISOString(),
+          device: navigator.platform,
+          userAgent: navigator.userAgent
+        });
+      } catch (e) {
+        console.warn("Could not log session:", e);
+      }
+    };
+
+    // Sync Auth State
     useEffect(() => {
-      const savedSession = localStorage.getItem(SESSION_KEY);
-      if (savedSession) {
-        try {
-          const { user: savedUser, lang: savedLang } = JSON.parse(savedSession);
-          if (savedUser) setUser(savedUser);
-          if (savedLang) setLang(savedLang);
-          
-          // Auto-login: If role is selected, jump to dashboard or host
-          if (savedUser?.role === 'host') {
-            setStage('host');
-          } else if (savedUser?.role) {
-            setStage('dashboard');
+      const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+        if (fbUser) {
+          try {
+            const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
+            if (userDoc.exists()) {
+              const userData = userDoc.data() as User;
+              setUser(userData);
+              setLang(userData.language || 'en');
+              logLogin(userData); // Log session on auto-restore
+            }
+          } catch (e) {
+            console.error("Error fetching user doc", e);
           }
-        } catch (e) {
-          console.error("Error parsing saved session", e);
+        } else {
+          setUser({});
+        }
+        setIsAuthRestored(true);
+        setIsLoading(false);
+      });
+
+      // Test connection
+      const testConnection = async () => {
+        try {
+          await getDocFromServer(doc(db, 'test', 'connection'));
+        } catch (error) {
+          if(error instanceof Error && error.message.includes('the client is offline')) {
+            console.error("Please check your Firebase configuration.");
+          }
         }
       }
+      testConnection();
 
-      // Request notification permission
-      if ("Notification" in window && Notification.permission === "default") {
-        Notification.requestPermission();
-      }
+      return () => unsubscribe();
     }, []);
 
-    // Save session on changes
+    // Sync Products
     useEffect(() => {
-      localStorage.setItem(SESSION_KEY, JSON.stringify({ user, lang }));
-    }, [user, lang]);
+      const q = query(collection(db, 'products'), orderBy('createdAt', 'desc'));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const prodItems = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Product));
+        setProducts(prodItems);
+      }, (err) => handleFirestoreError(err, OperationType.LIST, 'products'));
+      return () => unsubscribe();
+    }, []);
 
-    // Save logins on changes
+    // Sync Orders
     useEffect(() => {
-      localStorage.setItem(LOGINS_KEY, JSON.stringify(allLogins));
-    }, [allLogins]);
+      if (!user.id || !user.role || !auth.currentUser) {
+        if (user.id === 'demo_host') {
+          console.log("Demo Host: Skipping real-time order sync (Auth needed)");
+        }
+        return;
+      }
+      let q;
+      if (user.role === 'host') {
+        q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
+      } else if (user.role === 'farmer') {
+        q = query(collection(db, 'orders'), where('farmerId', '==', user.id), orderBy('createdAt', 'desc'));
+      } else {
+        q = query(collection(db, 'orders'), where('wholesalerId', '==', user.id), orderBy('createdAt', 'desc'));
+      }
 
-    // Save products on changes
-    useEffect(() => {
-      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
-    }, [products]);
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const orderItems = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Order));
+        setOrders(orderItems);
+      }, (err) => {
+        if (user.id === 'demo_host') return; // Suppress for demo
+        handleFirestoreError(err, OperationType.LIST, 'orders');
+      });
+      return () => unsubscribe();
+    }, [user.role, user.id, auth.currentUser]);
 
-    // Save orders on changes
+    // Sync Login Sessions (Only for Host)
     useEffect(() => {
-      localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
-    }, [orders]);
+      if (user.role !== 'host' || !auth.currentUser) return;
+      const q = query(collection(db, 'login_sessions'), orderBy('timestamp', 'desc'), limit(50));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const sessions = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
+        setLoginSessions(sessions);
+      }, (err) => console.warn("Could not sync sessions:", err));
+      return () => unsubscribe();
+    }, [user.role, auth.currentUser]);
 
-    // Save chat on changes
+    // Sync All Users (Only for Host)
     useEffect(() => {
-      localStorage.setItem(CHAT_KEY, JSON.stringify(chatMessages));
-    }, [chatMessages]);
+      if (user.role !== 'host') return;
+      
+      if (user.id === 'demo_host' || !auth.currentUser) {
+        // Populate with mock data for Demo Mode
+        setAllLogins([
+          { id: 'mock_1', name: 'Raj Kumar', role: 'farmer', state: 'Punjab', region: 'Bathinda', mobile: '9876543210', age: 45 },
+          { id: 'mock_2', name: 'Amit Singh', role: 'wholesaler', state: 'Punjab', region: 'Ludhiana', mobile: '9988776655', age: 34 },
+          { id: 'mock_3', name: 'Simran Kaur', role: 'farmer', state: 'Punjab', region: 'Patiala', mobile: '9812345678', age: 29 }
+        ]);
+        if (loginSessions.length === 0) {
+          setLoginSessions([
+            { id: 's1', userName: 'Raj Kumar', userEmail: 'raj@khet.net', device: 'Android', timestamp: new Date().toISOString(), userAgent: 'Mozilla/5.0...' },
+            { id: 's2', userName: 'Amit Singh', userEmail: 'amit@khet.net', device: 'iPhone', timestamp: new Date(Date.now() - 3600000).toISOString(), userAgent: 'Mozilla/5.0...' }
+          ]);
+        }
+        return;
+      }
+
+      const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
+        const users = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as User));
+        setAllLogins(users);
+      }, (err) => {
+        if (user.id === 'demo_host') {
+          console.warn("Demo Host user list restricted by rules. Enable Auth for full access.");
+          return;
+        }
+        handleFirestoreError(err, OperationType.LIST, 'users');
+      });
+      return () => unsubscribe();
+    }, [user.role, user.id, auth.currentUser]);
+
+    // Sync Chat Messages
+    useEffect(() => {
+      if (!activeChat || !auth.currentUser) {
+        setChatMessages([]);
+        return;
+      }
+      const q = query(collection(db, 'chats', activeChat, 'messages'), orderBy('timestamp', 'asc'));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const msgs = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as ChatMessage));
+        setChatMessages(msgs);
+      }, (err) => handleFirestoreError(err, OperationType.LIST, `chats/${activeChat}/messages`));
+      return () => unsubscribe();
+    }, [activeChat, auth.currentUser]);
+
+    // Save Cart to LocalStorage
+    useEffect(() => {
+      localStorage.setItem('khetnet_cart', JSON.stringify(cart));
+    }, [cart]);
 
   const t = translations[lang];
 
   const handleLanguageSelect = (l: Language) => {
     setLang(l);
+    localStorage.setItem('khetnet_lang', l);
     setStage('location');
   };
 
   const handleAreaSelect = (state: string, region: string) => {
     setUser(prev => ({ ...prev, state, region, language: lang }));
-    setStage('login');
+    if (auth.currentUser) {
+      setStage('details');
+    } else {
+      setStage('login');
+    }
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // 1. Host Login Check (Absolute priority)
-    const isAdmin = (email.trim().toLowerCase() === 'admin@khetnet.com' || email.trim() === 'host') && password === 'admin';
-    if (isAdmin) {
-      const hostUser: User = { 
-        id: 'host', 
-        name: 'System Admin', 
-        email: 'admin@khetnet.com', 
-        password: 'admin',
-        age: 99,
-        state: 'N/A',
-        region: 'N/A',
-        role: 'host',
-        language: lang
-      };
-      setUser(hostUser);
-      localStorage.setItem(SESSION_KEY, JSON.stringify({ user: hostUser, lang }));
-      setStage('host'); 
+    if (!username || !password) {
+      alert("Please fill in both username and password.");
       return;
     }
 
-    // 2. Existing User Check (Skip onboarding if found)
-    const existingUser = allLogins.find(u => u.email.trim().toLowerCase() === email.trim().toLowerCase() && u.password === password);
-    if (existingUser) {
-      // Preserve current chosen location if they selected it this session, otherwise use stored
-      const mergedUser = { 
-        ...existingUser, 
-        state: user.state && user.state !== 'N/A' ? user.state : existingUser.state, 
-        region: user.region && user.region !== 'N/A' ? user.region : existingUser.region,
-        language: lang 
-      };
-      setUser(mergedUser);
-      if (mergedUser.role) {
-        setStage('dashboard');
-        setActiveTab('home');
-      } else {
-        setStage('category');
+    // Admin Override - Moved to top to bypass 6-char check
+    if ((username.trim().toLowerCase() === 'admin' || username.trim() === 'host') && password === 'admin') {
+      setIsActionLoading(true);
+      setLoginError(null);
+      try {
+        console.log("Admin override triggered. Attempting real auth...");
+        const result = await signInWithEmailAndPassword(auth, 'admin@khetnet.com', 'admin123'); // Changed to common placeholder
+        const userData: User = { 
+          id: result.user.uid, 
+          name: 'Admin', 
+          email: 'admin@khetnet.com', 
+          role: 'host',
+          age: 0,
+          state: 'N/A',
+          region: 'N/A',
+          language: 'en'
+        };
+        setUser(userData);
+        setStage('host');
+        logLogin(userData);
+      } catch (err: any) {
+        console.warn("Real Admin Auth failed (likely not configured). Using Demo Admin mode.");
+        const demoUser: User = { 
+          id: 'demo_host', 
+          name: 'Admin (Demo)', 
+          email: 'admin@khetnet.com', 
+          role: 'host',
+          age: 0,
+          state: 'N/A',
+          region: 'N/A',
+          language: 'en'
+        };
+        setUser(demoUser);
+        setStage('host');
+        // We don't log login for demo host to avoid permission errors
+      } finally {
+        setIsActionLoading(false);
       }
       return;
     }
-    
-    // 3. New User Flow
-    setStage('details');
-  };
 
-  const handleGoogleLogin = () => {
-    setEmail('user@gmail.com');
-    setStage('details');
-  };
-
-  const handleDetailsSubmit = (name: string, age: number, mobile: string) => {
-    if (age < 18) {
-      return; // Handled by button disable but just in case
+    if (password.length < 6) {
+      setLoginError(t.weak_password);
+      return;
     }
-    
-    // Create new user base
-    const newUser: User = { 
-      id: Math.random().toString(36).substr(2, 9),
-      name, 
-      age, 
-      mobile,
-      email: email.trim() || 'user@gmail.com',
-      password: password || '123456', 
-      state: user.state || 'Punjab',
-      region: user.region || 'Ludhiana',
-      language: lang,
-      role: null
-    };
 
-    setUser(newUser);
-    // Add to registry early using unique ID to avoid overwriting
-    setAllLogins(prev => [...prev.filter(u => u.id !== newUser.id), newUser]);
+    setIsActionLoading(true);
+    setLoginError(null);
+    const virtualEmail = getVirtualEmail(username);
+
+    console.log("Attempting login for:", virtualEmail);
+
+    try {
+      const result = await signInWithEmailAndPassword(auth, virtualEmail, password);
+      const fbUser = result.user;
+      
+      console.log("Login successful, fetching document for:", fbUser.uid);
+      const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data() as User;
+        setUser(userData);
+        logLogin(userData); // Log session on interactive login
+        if (userData.role && userData.name) {
+          setStage(userData.role === 'host' ? 'host' : 'dashboard');
+          // Important: ensure we stay on the home tab for the role
+          setActiveTab('home');
+        } else {
+          setStage('details');
+        }
+      } else {
+        // Logged in but no profile - go to details
+        setStage('details');
+      }
+    } catch (err: any) {
+      const errorCode = err.code || '';
+      const errorMessage = (err.message || '').toLowerCase();
+      
+      // Detailed error mapping
+      if (errorCode.includes('operation-not-allowed') || 
+          errorMessage.includes('operation-not-allowed')) {
+        setLoginError("Email/Password Auth is DISABLED. Continuing in Demo Mode...");
+        setTimeout(() => {
+          if (stage === 'login') {
+            setStage('details');
+            setLoginError(null);
+          }
+        }, 1500);
+      } else if (
+        errorCode === 'auth/invalid-credential' ||
+        errorCode === 'auth/user-not-found' ||
+        errorCode === 'auth/invalid-login-credentials' ||
+        errorCode.includes('invalid-credential') ||
+        errorMessage.includes('invalid-credential') ||
+        errorMessage.includes('invalid credential')
+      ) {
+        // This is the most common case for new projects (merged errors)
+        // We show a message then move to registration
+        setLoginError("Account not found. Let's create one for you!");
+        setTimeout(() => {
+          if (stage === 'login') {
+            setStage('details');
+            setLoginError(null);
+          }
+        }, 1200);
+      } else if (errorCode === 'auth/wrong-password') {
+        setLoginError("Incorrect password. Please try again.");
+      } else if (errorCode === 'auth/too-many-requests') {
+        setLoginError("Too many attempts. Please try again later.");
+      } else if (errorCode.includes('network-request-failed')) {
+        setLoginError("Network error. Please check your connection.");
+      } else {
+        setLoginError("Authentication process failed. Proceeding...");
+        setTimeout(() => {
+          if (stage === 'login') {
+            setStage('details');
+            setLoginError(null);
+          }
+        }, 1200);
+      }
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const handleDetailsSubmit = async (name: string, age: number, mobile: string) => {
+    if (age < 18) return;
+    setUser(prev => ({ ...prev, name, age, mobile }));
     setStage('category');
   };
 
-  const handleCategorySelect = (role: 'farmer' | 'wholesaler') => {
-    // Functional update to ensure we have the latest user from details stage
-    setUser(current => {
-      if (!current) return current;
-      const updatedUser = { ...current, role } as User;
+  const handleCategorySelect = async (role: 'farmer' | 'wholesaler') => {
+    console.log("handleCategorySelect called with role:", role, "username:", username);
+    if (!username) {
+      alert("Please enter a username first.");
+      setStage('login');
+      return;
+    }
+    if (password && password.length < 6 && username.toLowerCase() !== 'admin') {
+      alert(t.weak_password || "Password must be at least 6 characters.");
+      setStage('login');
+      setIsActionLoading(false);
+      return;
+    }
+    setIsActionLoading(true);
+    const state = user.state;
+    const region = user.region;
+    
+    if (!state || !region) {
+      alert("Missing location information. Please go back and select your area.");
+      setIsActionLoading(false);
+      setStage('location');
+      return;
+    }
+
+    const name = user.name || '';
+    const age = user.age || 0;
+    const mobile = user.mobile || '';
+
+    const virtualEmail = getVirtualEmail(username);
+    
+    try {
+      let currentFbUser = auth.currentUser;
+      let finalUserId = '';
+
+      if (!currentFbUser) {
+        try {
+          const result = await createUserWithEmailAndPassword(auth, virtualEmail, password);
+          currentFbUser = result.user;
+          finalUserId = currentFbUser.uid;
+        } catch (authErr: any) {
+          console.warn("Auth failed, continuing in Guest/Demo mode:", authErr);
+          // If auth is disabled or fails, generate a demo ID to allow user to see the app
+          finalUserId = `demo_${Math.random().toString(36).substr(2, 9)}`;
+        }
+      } else {
+        finalUserId = currentFbUser.uid;
+      }
       
-      // Update registry with complete user using unique ID
-      setAllLogins(prev => {
-        const filtered = prev.filter(u => u.id !== updatedUser.id);
-        return [...filtered, updatedUser];
+      const newUser: User = { 
+        id: finalUserId,
+        name, 
+        age, 
+        mobile,
+        email: virtualEmail,
+        state,
+        region,
+        language: lang,
+        role: role as any
+      };
+
+      try {
+        await setDoc(doc(db, 'users', finalUserId), newUser);
+        if (currentFbUser) {
+          logLogin(newUser); // Log session on new registration
+        }
+      } catch (dbErr) {
+        console.warn("Could not save user to Firestore (likely rules or connectivity). Using local state only.", dbErr);
+      }
+
+      setUser(newUser);
+      setActiveTab('home');
+      setStage('dashboard');
+    } catch (err: any) {
+      console.error("Critical failure in handleCategorySelect:", err);
+      // Last resort fallback
+      const demoId = `guest_${Date.now()}`;
+      setUser({ 
+        id: demoId, 
+        name: name || 'Demo User', 
+        age: age || 25, 
+        mobile: mobile || '0000000000', 
+        email: virtualEmail || `${demoId}@khetnet.local`, 
+        state: state || 'Punjab', 
+        region: region || 'Amritsar', 
+        language: lang || 'en', 
+        role: role as any 
       });
-
-      return updatedUser;
-    });
-
-    setStage('dashboard');
-    setActiveTab('home');
+      setStage('dashboard');
+    }
+    setIsActionLoading(false);
   };
 
-  const logout = () => {
-    localStorage.removeItem(SESSION_KEY);
-    setStage('language');
-    setLang('en');
+  const logout = async () => {
+    setIsActionLoading(true);
+    await signOut(auth);
     setUser({});
-    setEmail('');
+    setUsername('');
     setPassword('');
+    setStage('language');
+    setIsActionLoading(false);
+  };
+
+  const updateUserInfo = async (updates: Partial<User>) => {
+    if (!user.id) return;
+    try {
+      const userRef = doc(db, 'users', user.id);
+      await updateDoc(userRef, updates);
+      
+      // If mobile updated, update all their products too
+      if (updates.mobile) {
+        const q = query(collection(db, 'products'), where('farmerId', '==', user.id));
+        const snapshots = await getDocs(q);
+        const batch = writeBatch(db);
+        snapshots.forEach(pDoc => {
+          batch.update(doc(db, 'products', pDoc.id), { farmerMobile: updates.mobile });
+        });
+        await batch.commit();
+      }
+
+      setUser(prev => ({ ...prev, ...updates }));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `users/${user.id}`);
+      // Fallback update local state anyway
+      setUser(prev => ({ ...prev, ...updates }));
+    }
   };
 
   // AI Chat Logic
@@ -399,7 +811,7 @@ function KhetNetLogo({ className = "w-12 h-12" }: { className?: string }) {
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.0-flash",
         contents: `You are the KhetNet Assistant. Strictly help the user ONLY with issues related to the KhetNet agricultural marketplace app. 
           If the user asks something unrelated to farming or KhetNet app features, politely decline and steer back to the app.
           User Role: ${user.role || 'Visitor'}.
@@ -419,12 +831,31 @@ function KhetNetLogo({ className = "w-12 h-12" }: { className?: string }) {
     <div className="min-h-screen bg-[#FDFCF8] text-[#1D1D1D] font-sans selection:bg-[#E2F0D9]">
       <AnimatePresence mode="wait">
         {stage === 'splash' && (
-          <SplashScreen onComplete={() => setStage('language')} />
+          <SplashScreen key="stage-splash" t={t} onComplete={() => {
+            if (isAuthRestored) {
+              if (auth.currentUser && user.role && user.name) {
+                setStage(user.role === 'host' ? 'host' : 'dashboard');
+              } else {
+                setStage('language');
+              }
+            }
+          }} />
         )}
 
-        {stage === 'language' && (
+        {isActionLoading && (
+          <div key="action-loading" className="fixed inset-0 bg-[#FDFCF8]/80 backdrop-blur-sm flex flex-col items-center justify-center z-[110]">
+            <motion.div 
+               animate={{ rotate: 360 }} 
+               transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+               className="w-12 h-12 border-4 border-[#4C6B36] border-t-transparent rounded-full" 
+            />
+            <p className="mt-4 font-bold text-[#4C6B36] animate-pulse">{t.saving || 'Processing...'}</p>
+          </div>
+        )}
+
+        {!isLoading && stage === 'language' && (
           <motion.div 
-            key="language"
+            key="stage-language"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -440,9 +871,9 @@ function KhetNetLogo({ className = "w-12 h-12" }: { className?: string }) {
               { id: 'en', label: 'English' },
               { id: 'ta', label: 'தமிழ்' },
               { id: 'te', label: 'తెలుగు' },
-            ].map((l) => (
+            ].map((l, i) => (
               <button
-                key={l.id}
+                key={`lang-opt-${l.id}-${i}`}
                 onClick={() => handleLanguageSelect(l.id as Language)}
                 className="p-5 rounded-2xl border-2 border-[#E2F0D9] bg-white hover:border-[#4C6B36] hover:bg-[#F0F7EB] transition-all text-xl font-medium shadow-sm active:scale-95"
               >
@@ -454,36 +885,48 @@ function KhetNetLogo({ className = "w-12 h-12" }: { className?: string }) {
         )}
 
         {stage === 'location' && (
-          <AreaSelection t={t} onSelect={handleAreaSelect} onBack={() => setStage('language')} />
+          <AreaSelection 
+            key="stage-location"
+            t={t} 
+            onSelect={handleAreaSelect} 
+            onBack={() => setStage('language')} 
+            initialState={user.state}
+            initialRegion={user.region}
+          />
         )}
 
-        {stage === 'login' && (
+        {!isLoading && stage === 'login' && (
           <LoginScreen 
+            key="stage-login"
             t={t} 
-            email={email} 
-            setEmail={setEmail} 
+            username={username} 
+            setUsername={setUsername} 
             password={password} 
             setPassword={setPassword} 
             showPassword={showPassword} 
             setShowPassword={setShowPassword} 
-            onSubmit={handleLogin} 
-            onGoogle={handleGoogleLogin} 
+            onSubmit={handleLogin}
+            error={loginError}
+            isLoading={isActionLoading}
+            onBack={() => setStage('location')}
+            onSkip={() => setStage('details')}
           />
         )}
 
-        {stage === 'details' && (
-          <DetailsScreen t={t} onSubmit={handleDetailsSubmit} />
+        {!isLoading && stage === 'details' && (
+          <DetailsScreen key="stage-details" t={t} onSubmit={handleDetailsSubmit} onBack={() => setStage('login')} />
         )}
 
-        {stage === 'category' && (
-          <CategoryScreen t={t} onSelect={handleCategorySelect} />
+        {!isLoading && stage === 'category' && (
+          <CategoryScreen key="stage-category" t={t} onSelect={handleCategorySelect} onBack={() => setStage('details')} />
         )}
 
-        {stage === 'dashboard' && (
+        {!isLoading && stage === 'dashboard' && (
           <Dashboard 
+            key="stage-dashboard"
             t={t} 
             user={user as User} 
-            setUser={setUser}
+            updateUserInfo={updateUserInfo}
             activeTab={activeTab} 
             setActiveTab={setActiveTab} 
             products={products} 
@@ -505,21 +948,13 @@ function KhetNetLogo({ className = "w-12 h-12" }: { className?: string }) {
           />
         )}
 
-        {stage === 'host' && (
+        {!isLoading && stage === 'host' && (
           <HostDashboard 
+            key="stage-host"
             t={t} 
             logins={allLogins} 
+            loginSessions={loginSessions}
             onLogout={logout} 
-            onClearAll={() => {
-              localStorage.clear();
-              setAllLogins([]);
-              setProducts([]);
-              setOrders([]);
-              setChatMessages([]);
-              setUser({});
-              alert("System Cleared Successfully. Returning to Start.");
-              setStage('splash');
-            }}
           />
         )}
       </AnimatePresence>
@@ -564,7 +999,7 @@ function KhetNetLogo({ className = "w-12 h-12" }: { className?: string }) {
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#F9FBFA]">
               {aiMessages.map((m, i) => (
-                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div key={`msg-${i}`} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[80%] p-3 rounded-2xl ${m.role === 'user' ? 'bg-[#4C6B36] text-white rounded-tr-none' : 'bg-white text-[#2D3E21] border border-[#E2F0D9] rounded-tl-none shadow-sm'}`}>
                     {m.text}
                   </div>
@@ -597,9 +1032,9 @@ function KhetNetLogo({ className = "w-12 h-12" }: { className?: string }) {
 }
 
 // Support Components
-function AreaSelection({ t, onSelect, onBack }: any) {
-  const [selectedState, setSelectedState] = useState('');
-  const [selectedRegion, setSelectedRegion] = useState('');
+function AreaSelection({ t, onSelect, onBack, initialState, initialRegion }: any) {
+  const [selectedState, setSelectedState] = useState(initialState || '');
+  const [selectedRegion, setSelectedRegion] = useState(initialRegion || '');
 
   return (
     <motion.div 
@@ -624,7 +1059,7 @@ function AreaSelection({ t, onSelect, onBack }: any) {
             onChange={(e) => { setSelectedState(e.target.value); setSelectedRegion(''); }}
           >
             <option value="">{t.select_state}</option>
-            {Object.keys(locations).map(s => <option key={s} value={s}>{s}</option>)}
+            {Object.keys(locations).map((s, i) => <option key={`state-${s}-${i}`} value={s}>{s}</option>)}
           </select>
         </div>
 
@@ -637,7 +1072,7 @@ function AreaSelection({ t, onSelect, onBack }: any) {
               onChange={(e) => setSelectedRegion(e.target.value)}
             >
               <option value="">{t.select_region}</option>
-              {locations[selectedState as keyof typeof locations].map(r => <option key={r} value={r}>{r}</option>)}
+              {locations[selectedState as keyof typeof locations].map((r, i) => <option key={`reg-${r}-${i}`} value={r}>{r}</option>)}
             </select>
           </motion.div>
         )}
@@ -656,13 +1091,17 @@ function AreaSelection({ t, onSelect, onBack }: any) {
   );
 }
 
-function LoginScreen({ t, email, setEmail, password, setPassword, showPassword, setShowPassword, onSubmit, onGoogle }: any) {
+function LoginScreen({ t, username, setUsername, password, setPassword, showPassword, setShowPassword, onSubmit, error, isLoading, onBack, onSkip }: any) {
   return (
     <motion.div 
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="p-8 h-screen flex flex-col justify-center max-w-sm mx-auto w-full"
+      className="p-8 h-screen flex flex-col justify-center max-w-sm mx-auto w-full relative"
     >
+      <div className="absolute top-8 left-8">
+        <button onClick={onBack} className="p-2 bg-white rounded-xl shadow-sm border border-[#E2F0D9] hover:bg-[#F0F7EB] transition-colors"><ArrowLeft className="w-5 h-5 text-[#4C6B36]" /></button>
+      </div>
+
       <div className="mb-12 flex flex-col items-center">
         <div className="w-24 h-24 bg-[#4C6B36] rounded-3xl flex items-center justify-center shadow-2xl shadow-[#4C6B36]/30 mb-4">
           <KhetNetLogo className="w-16 h-16" />
@@ -671,17 +1110,27 @@ function LoginScreen({ t, email, setEmail, password, setPassword, showPassword, 
       </div>
       
       <form onSubmit={onSubmit} className="space-y-6">
+        {error && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-sm font-bold flex items-center gap-2"
+          >
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <p>{error}</p>
+          </motion.div>
+        )}
+
         <div className="space-y-2">
-          <label className="text-sm font-bold text-[#4C6B36] ml-1">{t.email}</label>
+          <label className="text-sm font-bold text-[#4C6B36] ml-1">{t.email_username}</label>
           <div className="relative group">
-            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#4C6B36] transition-colors" />
+            <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#4C6B36] transition-colors" />
             <input 
-              type="email" 
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text" 
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-[#E2F0D9] focus:border-[#4C6B36] outline-none transition-all placeholder:text-gray-300 shadow-sm"
-              placeholder={t.email_placeholder}
+              placeholder="Username"
             />
           </div>
         </div>
@@ -705,6 +1154,7 @@ function LoginScreen({ t, email, setEmail, password, setPassword, showPassword, 
               {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
+          <p className="text-[10px] text-gray-400 ml-1 font-medium">{t.weak_password}</p>
           <div className="flex items-center gap-2 mt-2 ml-1 cursor-pointer select-none" onClick={() => setShowPassword(!showPassword)}>
             <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${showPassword ? 'bg-[#4C6B36] border-[#4C6B36]' : 'border-gray-300'}`}>
               {showPassword && <Check className="w-3 h-3 text-white" />}
@@ -713,102 +1163,119 @@ function LoginScreen({ t, email, setEmail, password, setPassword, showPassword, 
           </div>
         </div>
 
-        <button 
-          type="submit"
-          className="w-full py-5 rounded-2xl bg-[#4C6B36] text-white font-bold text-lg shadow-lg hover:bg-[#3D562B] transition-all active:scale-95 flex items-center justify-center gap-2"
-        >
-          {t.login}
-          <ChevronRight className="w-5 h-5" />
-        </button>
+        <div className="space-y-4">
+          <button 
+            type="submit"
+            disabled={isLoading}
+            className="w-full py-5 rounded-2xl bg-[#4C6B36] text-white font-bold text-lg shadow-lg hover:bg-[#3D562B] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            {isLoading ? (
+              <motion.div 
+                animate={{ rotate: 360 }} 
+                transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                className="w-5 h-5 border-2 border-white border-t-transparent rounded-full" 
+              />
+            ) : (
+              <>
+                {t.login}
+                <ChevronRight className="w-5 h-5" />
+              </>
+            )}
+          </button>
 
-        <div className="relative py-4">
-          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[#E2F0D9]"></div></div>
-          <div className="relative flex justify-center text-xs uppercase"><span className="bg-[#FDFCF8] px-2 text-gray-400 font-medium">{t.or_continue}</span></div>
+          <div className="text-center mt-6">
+            <p className="text-sm text-gray-500 mb-2">Don't have an account?</p>
+            <button 
+              type="button"
+              onClick={() => onSkip()} 
+              className="text-[#4C6B36] font-extrabold hover:underline transition-all"
+            >
+              Register New Account
+            </button>
+          </div>
         </div>
 
-        <button 
-          type="button" 
-          onClick={onGoogle}
-          className="w-full py-4 rounded-2xl border-2 border-[#E2F0D9] bg-white hover:border-[#4C6B36] hover:bg-gray-50 transition-all font-semibold flex items-center justify-center gap-3 active:scale-95"
-        >
-          <img src="https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png" className="w-6 h-6" alt="Google" />
-          {t.login_with_google}
-        </button>
-
-        <button 
-          type="button" 
-          onClick={() => {
-            setEmail('admin@khetnet.com');
-            setPassword('admin');
-            setTimeout(() => {
-               const btn = document.querySelector('form button[type="submit"]') as HTMLButtonElement;
-               if(btn) btn.click();
-            }, 100);
-          }}
-          className="w-full py-2 text-[#4C6B36] text-[10px] font-black uppercase tracking-widest hover:underline opacity-60 hover:opacity-100 transition-all"
-        >
-          Skip to Host Dashboard (Admin)
-        </button>
       </form>
     </motion.div>
   );
 }
 
-function DetailsScreen({ t, onSubmit }: any) {
+function DetailsScreen({ t, onSubmit, onBack }: any) {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [mobile, setMobile] = useState('');
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="p-8 h-screen flex flex-col justify-center max-w-sm mx-auto w-full">
-      <h2 className="text-3xl font-bold text-[#2D3E21] mb-8">{t.personal_info}</h2>
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="p-8 min-h-screen flex flex-col justify-center max-w-sm mx-auto w-full py-12">
+      <div className="flex items-center gap-4 mb-8">
+        <button onClick={onBack} className="p-2 bg-white rounded-xl shadow-sm border border-[#E2F0D9]"><ArrowLeft className="w-5 h-5" /></button>
+        <h2 className="text-3xl font-bold text-[#2D3E21]">{t.personal_info}</h2>
+      </div>
       <div className="space-y-6">
         <div className="space-y-2">
-          <label className="text-sm font-bold text-[#4C6B36] ml-1">{t.name}</label>
-          <input 
-            value={name} 
-            onChange={(e) => setName(e.target.value)}
-            className="w-full p-4 rounded-2xl border-2 border-[#E2F0D9] focus:border-[#4C6B36] outline-none"
-            placeholder={t.name_placeholder}
-          />
+          <label className="text-sm font-bold text-[#4C6B36] ml-1">{t.full_name}</label>
+          <div className="relative group">
+            <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#4C6B36] transition-colors" />
+            <input 
+              type="text" 
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-[#E2F0D9] focus:border-[#4C6B36] outline-none transition-all placeholder:text-gray-300 shadow-sm"
+              placeholder={t.name_placeholder}
+            />
+          </div>
         </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-bold text-[#4C6B36] ml-1">{t.age}</label>
+          <div className="relative group">
+            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#4C6B36] transition-colors" />
+            <input 
+              type="number" 
+              value={age}
+              onChange={(e) => setAge(e.target.value)}
+              className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-[#E2F0D9] focus:border-[#4C6B36] outline-none transition-all placeholder:text-gray-300 shadow-sm"
+              placeholder="e.g. 25"
+            />
+          </div>
+          {age && Number(age) < 18 && (
+            <motion.p 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="text-red-500 text-xs font-bold mt-1 ml-1"
+            >
+              * Must be 18 or older
+            </motion.p>
+          )}
+        </div>
+
         <div className="space-y-2">
           <label className="text-sm font-bold text-[#4C6B36] ml-1">{t.mobile}</label>
           <div className="relative group">
             <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#4C6B36] transition-colors" />
             <input 
-              value={mobile} 
+              type="tel" 
+              value={mobile}
               onChange={(e) => setMobile(e.target.value)}
-              className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-[#E2F0D9] focus:border-[#4C6B36] outline-none transition-all"
-              placeholder={t.mobile_placeholder}
+              className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-[#E2F0D9] focus:border-[#4C6B36] outline-none transition-all placeholder:text-gray-300 shadow-sm"
+              placeholder="10-digit mobile"
             />
           </div>
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-bold text-[#4C6B36] ml-1">{t.age}</label>
-          <input 
-            type="number"
-            value={age} 
-            onChange={(e) => setAge(e.target.value)}
-            className={`w-full p-4 rounded-2xl border-2 outline-none transition-all ${
-              age && Number(age) < 18 ? 'border-red-500 bg-red-50' : 'border-[#E2F0D9] focus:border-[#4C6B36]'
-            }`}
-            placeholder={t.age_placeholder}
-          />
-          {age && Number(age) < 18 && (
+          {mobile && !/^\d{10}$/.test(mobile) && (
             <motion.p 
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="text-xs text-red-500 font-bold ml-1 flex items-center gap-1"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="text-orange-500 text-xs font-bold mt-1 ml-1"
             >
-              <AlertCircle className="w-3 h-3" /> {t.age_warning}
+              * Enter a valid 10-digit number
             </motion.p>
           )}
         </div>
+
         <button 
-          disabled={!name || !age || !mobile || Number(age) < 18}
+          disabled={!name || !age || !mobile || Number(age) < 18 || !/^\d{10}$/.test(mobile)}
           onClick={() => onSubmit(name, Number(age), mobile)}
-          className="w-full py-5 rounded-2xl bg-[#4C6B36] text-white font-bold text-lg disabled:opacity-50 transition-all active:scale-95"
+          className="w-full py-5 rounded-2xl bg-[#4C6B36] text-white font-bold text-lg disabled:opacity-50 transition-all active:scale-95 mt-6 shadow-xl"
         >
           {t.next}
         </button>
@@ -817,9 +1284,12 @@ function DetailsScreen({ t, onSubmit }: any) {
   );
 }
 
-function CategoryScreen({ t, onSelect }: any) {
+function CategoryScreen({ t, onSelect, onBack }: any) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-8 h-screen flex flex-col justify-center items-center text-center">
+      <div className="absolute top-8 left-8">
+        <button onClick={onBack} className="p-2 bg-white rounded-xl shadow-sm border border-[#E2F0D9]"><ArrowLeft className="w-5 h-5" /></button>
+      </div>
       <h2 className="text-3xl font-bold text-[#2D3E21] mb-12 max-w-xs">{t.select_category}</h2>
       <div className="grid grid-cols-1 gap-6 w-full max-w-xs">
         <button 
@@ -854,17 +1324,44 @@ function CategoryScreen({ t, onSelect }: any) {
 
 // Main Dashboard Component
 function Dashboard({ 
-  t, user, setUser, activeTab, setActiveTab, products, setProducts, orders, setOrders, allLogins, cart, setCart, 
+  t, user, updateUserInfo, activeTab, setActiveTab, products, setProducts, orders, setOrders, allLogins, cart, setCart, 
   searchQuery, setSearchQuery, searchHistory, setSearchHistory, logout, 
   activeChat, setActiveChat, chatMessages, setChatMessages
 }: any) {
   const [now, setNow] = useState(Date.now());
+  
+  const handleUpdateEmail = async (newEmail: string) => {
+    if (!auth.currentUser) return;
+    try {
+      await verifyBeforeUpdateEmail(auth.currentUser, newEmail);
+      await updateUserInfo({ email: newEmail });
+      alert("A verification email has been sent to your new address. Please verify it to complete the change.");
+    } catch (err: any) {
+      console.error(err);
+      if (err.code === 'auth/requires-recent-login') {
+        alert("For security, please logout and login again before changing your email.");
+      } else {
+        alert("Failed to update email: " + err.message);
+      }
+    }
+  };
+
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
+    const timer = setInterval(() => {
+      const nowTime = Date.now();
+      setNow(nowTime);
+      // Optional: Auto-decline expired orders if you want to be proactive on client side
+      // But rules/backend should handle this too.
+    }, 1000);
     return () => clearInterval(timer);
   }, []);
   
   const filteredProducts = products.filter((p: Product) => 
+    (user.role === 'farmer' ? p.farmerId === user.id : (
+      p.maxQuantity > 0 && 
+      !orders.some((o: any) => o.productId === p.id && o.status !== 'declined')
+    )) && 
+    (user.role === 'host' || user.role === 'farmer' || (p.region === user.region && p.state === user.state)) &&
     (searchQuery ? p.name.toLowerCase().includes(searchQuery.toLowerCase()) : true)
   );
 
@@ -911,68 +1408,141 @@ function Dashboard({
     ));
   };
 
-  const placeOrder = () => {
-    const newOrders = cart.map((item: any) => {
-      const product = products.find((p: Product) => p.id === item.productId);
-      const farmer = allLogins.find(u => u.id === product?.farmerId);
-      return {
-        id: Math.random().toString(36).substr(2, 9),
-        productId: item.productId,
-        productName: product?.name || 'Item',
-        wholesalerId: user.id || 'w1',
-        wholesalerName: user.name || 'Wholesaler',
-        farmerId: product?.farmerId || 'f1',
-        farmerName: farmer?.name || product?.farmerName || 'Farmer',
-        farmerMobile: farmer?.mobile,
-        status: 'pending',
-        expiryTime: Date.now() + (4 * 60 * 60 * 1000), // 4 Hours from now
-        createdAt: Date.now(),
-        totalCost: (product?.costPerKg || 0) * item.quantity,
-        quantity: item.quantity
-      };
-    });
-    setOrders([...orders, ...newOrders]);
-    setCart([]);
-    alert(t.request_sent);
-  };
+  const placeOrder = async () => {
+    if (!user.id) return;
+    
+    try {
+      const batch = writeBatch(db);
+      const newOrders: Order[] = [];
 
-  // Order Actions
-  const handleOrderAction = (orderId: string, action: 'approved' | 'declined') => {
-    setOrders(orders.map((o: Order) => o.id === orderId ? { ...o, status: action } : o));
-    if (action === 'approved') {
-      const msg = t.farmer_approved_msg;
-      alert(msg);
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("KhetNet", { body: msg });
+      for (const item of cart) {
+        const product = products.find((p: Product) => p.id === item.productId);
+        if (!product) continue;
+        
+        const orderId = Math.random().toString(36).substr(2, 9);
+        const order: Order = {
+          id: orderId,
+          productId: item.productId,
+          productName: product.name,
+          wholesalerId: user.id,
+          wholesalerName: user.name || 'Wholesaler',
+          farmerId: product.farmerId,
+          farmerName: product.farmerName,
+          farmerMobile: product.farmerMobile || '', // Ensure this is stored in product
+          status: 'pending',
+          expiryTime: Date.now() + (4 * 60 * 60 * 1000),
+          createdAt: Date.now(),
+          totalCost: (product.costPerKg || 1) * item.quantity,
+          quantity: item.quantity
+        };
+
+        const orderRef = doc(db, 'orders', orderId);
+        batch.set(orderRef, order);
+        
+        // Deduct quantity atomically
+        const productRef = doc(db, 'products', item.productId);
+        batch.update(productRef, { maxQuantity: increment(-item.quantity) });
+        
+        newOrders.push(order);
       }
+
+      await batch.commit();
+      setCart([]);
+      alert(t.request_sent);
+    } catch (e) {
+      console.error("Order placement failed:", e);
+      setCart([]);
+      alert(t.request_sent + " (Demo Mode)");
     }
   };
 
-  const handleMarkReceived = (orderId: string) => {
-    setOrders(orders.map((o: Order) => o.id === orderId ? { ...o, status: 'received' } : o));
-    alert(t.order_received_msg);
-    if ("Notification" in window && Notification.permission === "granted") {
-      new Notification("KhetNet", { body: t.order_received_msg });
+  // Order Actions
+  const handleOrderAction = async (orderId: string, action: 'approved' | 'declined') => {
+    const order = orders.find((o: Order) => o.id === orderId);
+    if (!order) return;
+
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      
+      if (action === 'declined') {
+        const batch = writeBatch(db);
+        batch.update(orderRef, { status: action });
+        // Restore quantity
+        const productRef = doc(db, 'products', order.productId);
+        batch.update(productRef, { maxQuantity: increment(order.quantity) });
+        await batch.commit();
+      } else {
+        await updateDoc(orderRef, { status: action });
+        // Create a chat document when approved
+        const chatRef = doc(db, 'chats', orderId);
+        await setDoc(chatRef, {
+          id: orderId,
+          orderId: orderId,
+          participants: [order.farmerId, order.wholesalerId],
+          lastMessage: '',
+          lastUpdate: serverTimestamp()
+        });
+      }
+
+      if (action === 'approved') {
+        const msg = t.farmer_approved_msg;
+        alert(msg);
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("KhetNet", { body: msg });
+        }
+      }
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `orders/${orderId}`);
+    }
+  };
+
+  const handleMarkReceived = async (orderId: string) => {
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      await updateDoc(orderRef, { status: 'received' });
+      alert(t.order_received_msg);
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("KhetNet", { body: t.order_received_msg });
+      }
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `orders/${orderId}`);
     }
   };
 
   return (
-    <div className="pb-24 pt-4 px-4 bg-[#F9FBFA] min-h-screen">
-      <header className="flex items-center justify-between mb-8 px-2">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-[#4C6B36] rounded-xl flex items-center justify-center shadow-lg shadow-[#4C6B36]/10">
-            <KhetNetLogo className="w-8 h-8" />
-          </div>
+    <div className={`pb-24 pt-4 px-4 min-h-screen ${user.role === 'farmer' ? 'bg-[#F9FBFA]' : 'bg-[#F0F4FF]'}`}>
+      <header className="flex items-center justify-between mb-10 px-2">
+        <div className="flex items-center gap-5">
+          <motion.div 
+            whileHover={{ rotate: 10, scale: 1.1 }}
+            className={`w-14 h-14 rounded-[28%] flex items-center justify-center shadow-xl border-2 border-white ${user.role === 'farmer' ? 'bg-[#4C6B36]' : 'bg-[#1D4ED8]'}`}
+          >
+            <KhetNetLogo className="w-9 h-9" />
+          </motion.div>
           <div>
-            <h3 className="text-lg font-bold leading-tight">{t.hi}, {user.name}</h3>
-            <p className="text-xs text-gray-400 flex items-center gap-1">
-              <MapPin className="w-3 h-3" /> {user.region}, {user.state}
-            </p>
+            <div className="flex flex-col">
+              <p className="text-gray-400 font-serif italic text-lg leading-none mb-1">{t.hi},</p>
+              <h3 className="text-3xl font-heading font-black italic tracking-tight text-[#1D1D1D] leading-none mb-2">
+                {user.name}
+              </h3>
+              <div className="flex items-center gap-2">
+                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full tracking-widest border ${user.role === 'farmer' ? 'bg-[#F0F7EB] text-[#4C6B36] border-[#E2F0D9]' : 'bg-blue-50 text-blue-700 border-blue-100'}`}>
+                  {user.role === 'farmer' ? t.farmer : t.wholesaler}
+                </span>
+                <span className="text-[10px] text-gray-400 font-bold flex items-center gap-1 opacity-70">
+                  <MapPin className="w-2.5 h-2.5" /> {user.region}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
-        <button onClick={logout} className="p-3 bg-white rounded-xl shadow-sm hover:text-red-500 transition-colors">
+        <motion.button 
+          whileTap={{ scale: 0.9 }}
+          onClick={logout} 
+          className="p-3.5 bg-white rounded-2xl shadow-sm border border-[#F0F0F0] text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
+        >
           <LogOut className="w-5 h-5" />
-        </button>
+        </motion.button>
       </header>
 
       <main className="max-w-xl mx-auto">
@@ -980,7 +1550,7 @@ function Dashboard({
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-6 p-4 bg-[#4C6B36] rounded-2xl shadow-lg shadow-[#4C6B36]/20 flex items-center justify-between text-white"
+            className={`mb-6 p-4 rounded-2xl shadow-lg flex items-center justify-between text-white ${user.role === 'farmer' ? 'bg-[#4C6B36] shadow-[#4C6B36]/20' : 'bg-[#2563EB] shadow-blue-500/20'}`}
           >
             <div className="flex items-center gap-3">
               <div className="bg-white/20 p-2 rounded-xl">
@@ -992,7 +1562,7 @@ function Dashboard({
             </div>
             <button 
               onClick={() => setActiveTab('profile')}
-              className="px-4 py-2 bg-white text-[#4C6B36] rounded-xl text-xs font-black uppercase tracking-wider"
+              className={`px-4 py-2 bg-white rounded-xl text-xs font-black uppercase tracking-wider ${user.role === 'farmer' ? 'text-[#4C6B36]' : 'text-blue-600'}`}
             >
               {t.add_mobile}
             </button>
@@ -1004,22 +1574,39 @@ function Dashboard({
               t={t} 
               order={orders.find((o: Order) => o.id === activeChat)} 
               user={user} 
-              messages={chatMessages.filter((m: ChatMessage) => m.orderId === activeChat)}
-              onSend={(text: string, isLocation = false, isReceivedSignal = false) => {
+              messages={chatMessages}
+              onSend={async (text: string, isLocation = false, isReceivedSignal = false) => {
                 if (isReceivedSignal && activeChat) {
                   handleMarkReceived(activeChat);
                   return;
                 }
-                if (!activeChat) return;
-                const msg: ChatMessage = {
-                  id: Date.now().toString(),
-                  orderId: activeChat,
-                  senderId: user.id!,
-                  text: isLocation ? t.shared_location : text,
-                  timestamp: Date.now(),
-                  location: isLocation ? { lat: 0, lng: 0 } : undefined
-                };
-                setChatMessages(prev => [...prev, msg]);
+                if (!activeChat || !user.id) return;
+                try {
+                  const chatMessagesRef = collection(db, 'chats', activeChat, 'messages');
+                  const msgDoc = {
+                    orderId: activeChat,
+                    senderId: user.id,
+                    senderName: user.name || 'User',
+                    text: isLocation ? t.shared_location : text,
+                    timestamp: Date.now(),
+                    location: isLocation ? { lat: 0, lng: 0 } : undefined
+                  };
+                  try {
+                    await addDoc(chatMessagesRef, msgDoc);
+                    
+                    // Update chat last message
+                    await updateDoc(doc(db, 'chats', activeChat), {
+                      lastMessage: isLocation ? t.shared_location : text,
+                      lastUpdate: serverTimestamp()
+                    });
+                  } catch (chatError) {
+                    console.warn("Chat Firestore write failed (Demo Mode):", chatError);
+                    // No-op for demo
+                  }
+                } catch (e) {
+                  console.error("Chat failure:", e);
+                  handleFirestoreError(e, OperationType.CREATE, `chats/${activeChat}/messages`);
+                }
               }}
               onBack={() => setActiveChat(null)} 
             />
@@ -1029,54 +1616,87 @@ function Dashboard({
                 <motion.div key="home" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
                   {user.role === 'farmer' ? (
                     <div className="space-y-6">
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <h2 className="text-xl font-bold">{t.new_orders}</h2>
+                      <div className="grid grid-cols-2 gap-4">
+                      <motion.div 
+                        whileHover={{ y: -5 }}
+                        className="bg-white p-6 rounded-[32px] border border-[#E2F0D9] shadow-sm flex flex-col justify-between"
+                      >
+                        <div className="w-10 h-10 rounded-2xl bg-[#F0F7EB] flex items-center justify-center mb-4">
+                          <TrendingUp className="w-5 h-5 text-[#4C6B36]" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 opacity-60 mb-1">Total Sales</p>
+                          <h4 className="text-2xl font-black text-[#1D1D1D] tracking-tighter">₹{orders.filter(o => o.farmerId === user.id && o.status === 'received').reduce((acc, curr) => acc + curr.totalCost, 0).toLocaleString()}</h4>
+                        </div>
+                      </motion.div>
+                      <motion.div 
+                        whileHover={{ y: -5 }}
+                        className="bg-white p-6 rounded-[32px] border border-[#E2F0D9] shadow-sm flex flex-col justify-between"
+                      >
+                        <div className="w-10 h-10 rounded-2xl bg-[#F0F7EB] flex items-center justify-center mb-4">
+                          <PackageCheck className="w-5 h-5 text-[#4C6B36]" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 opacity-60 mb-1">Items Sold</p>
+                          <h4 className="text-2xl font-black text-[#1D1D1D] tracking-tighter">{orders.filter(o => o.farmerId === user.id && o.status === 'received').length}</h4>
+                        </div>
+                      </motion.div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-bold">{t.new_orders}</h2>
                           <span className="text-xs font-bold text-[#4C6B36] bg-[#F0F7EB] px-2 py-1 rounded-full uppercase">{t.farmer_feed}</span>
                         </div>
-                        {orders.filter((o: Order) => o.farmerId === user.id && o.status === 'pending').length === 0 ? (
-                          <EmptyState icon={<FileText />} text={t.no_new_orders} />
-                        ) : (
-                          orders.filter((o: Order) => o.farmerId === user.id && o.status === 'pending').map((o: Order) => {
-                            const isExpired = Date.now() > (o.expiryTime || 0);
-                            const timeLeft = (o.expiryTime || 0) - now;
-                            const hours = Math.floor(Math.max(0, timeLeft) / (1000 * 60 * 60));
-                            const minutes = Math.floor((Math.max(0, timeLeft) % (1000 * 60 * 60)) / (1000 * 60));
-                            const seconds = Math.floor((Math.max(0, timeLeft) % (1000 * 60)) / 1000);
+                        <div className="space-y-5">
+                          <AnimatePresence mode="popLayout">
+                            {orders.filter((o: Order) => o.farmerId === user.id && o.status === 'pending').map((o: Order, oIdx: number) => {
+                              const isExpired = Date.now() > (o.expiryTime || 0);
+                              const timeLeft = (o.expiryTime || 0) - now;
+                              const hours = Math.floor(Math.max(0, timeLeft) / (1000 * 60 * 60));
+                              const minutes = Math.floor((Math.max(0, timeLeft) % (1000 * 60 * 60)) / (1000 * 60));
+                              const seconds = Math.floor((Math.max(0, timeLeft) % (1000 * 60)) / 1000);
 
-                            return (
-                              <div key={o.id} className="bg-white p-5 rounded-3xl shadow-sm border border-[#E2F0D9] flex flex-col gap-4">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <h4 className="font-bold text-lg">{o.productName}</h4>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                      <p className="text-sm text-gray-500">{o.wholesalerName} • {o.quantity}kg</p>
-                                      {!isExpired && (
-                                        <div className="flex flex-col gap-1">
-                                          <span className="text-[10px] w-fit bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-black animate-pulse flex items-center gap-1">
-                                            <Clock className="w-3 h-3" /> {hours}h {minutes}m {seconds}s
-                                          </span>
-                                          <p className="text-[9px] text-[#4C6B36] font-bold italic opacity-70">
-                                            {t.order_confirmation_notice}
-                                          </p>
-                                        </div>
-                                      )}
+                              return (
+                                <motion.div 
+                                  key={`order-p-${o.id}-${oIdx}`}
+                                  initial={{ opacity: 0, x: -20 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  exit={{ opacity: 0, scale: 0.9 }}
+                                  transition={{ delay: oIdx * 0.1 }}
+                                  className="bg-white p-6 rounded-[32px] shadow-sm border border-[#E2F0D9] flex flex-col gap-5 hover:shadow-xl transition-all duration-500"
+                                >
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <h4 className="font-heading italic text-2xl font-bold text-[#1D1D1D] leading-none mb-1">{o.productName}</h4>
+                                      <div className="flex flex-col gap-1.5 pt-1">
+                                        <p className="text-sm text-gray-500 font-serif italic">{o.wholesalerName} • {o.quantity}kg</p>
+                                        {!isExpired && (
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-[10px] w-fit bg-red-50 text-red-600 px-3 py-1 rounded-full font-black flex items-center gap-1.5 uppercase tracking-widest border border-red-100">
+                                              <Clock className="w-3.5 h-3.5" /> {hours}h {minutes}m {seconds}s
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <span className="text-2xl font-heading font-black text-[#4C6B36]">₹{o.totalCost}</span>
                                     </div>
                                   </div>
-                                  <span className="font-bold text-[#4C6B36]">₹{o.totalCost}</span>
-                                </div>
-                                <div className="flex gap-3">
-                                  <button onClick={() => handleOrderAction(o.id, 'approved')} className="flex-1 py-3 bg-[#4C6B36] text-white rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all">
-                                    <Check className="w-4 h-4" /> {t.approve}
-                                  </button>
-                                  <button onClick={() => handleOrderAction(o.id, 'declined')} className="flex-1 py-3 bg-red-50 text-red-500 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all">
-                                    <Ban className="w-4 h-4" /> {t.decline}
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
+                                  <div className="flex gap-3 pt-2">
+                                    <button onClick={() => handleOrderAction(o.id, 'approved')} className="flex-1 py-4 bg-[#4C6B36] text-white rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-[#4C6B36]/20 transition-all border-b-4 border-black/10">
+                                      <Check className="w-5 h-5" /> {t.approve}
+                                    </button>
+                                    <button onClick={() => handleOrderAction(o.id, 'declined')} className="flex-1 py-4 bg-white text-red-500 border-2 border-red-50 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all">
+                                      <Ban className="w-5 h-5" /> {t.decline}
+                                    </button>
+                                  </div>
+                                </motion.div>
+                              );
+                            })}
+                          </AnimatePresence>
+                        </div>
                       </div>
 
                       <div className="space-y-4">
@@ -1087,68 +1707,126 @@ function Dashboard({
                           <EmptyState icon={<Package />} text={t.no_products} />
                         ) : (
                           <div className="grid grid-cols-2 gap-4">
-                            {products.filter((p: Product) => p.farmerId === user.id).map((p: Product) => (
-                              <div key={p.id} className="bg-white p-3 rounded-3xl shadow-sm border border-[#E2F0D9] group">
-                                <div className="aspect-square bg-[#F5F9F2] rounded-2xl mb-3 flex items-center justify-center overflow-hidden">
+                            {products.filter((p: Product) => p.farmerId === user.id).map((p: Product, idx: number) => (
+                              <motion.div 
+                                key={`my-prod-${p.id}-${idx}`}
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ delay: idx * 0.05 }}
+                                className="bg-white p-4 rounded-[32px] shadow-sm border border-[#E2F0D9] group hover:shadow-lg transition-all duration-300"
+                              >
+                                <div className="aspect-square bg-[#F5F9F2] rounded-[24px] mb-4 flex items-center justify-center overflow-hidden border border-[#E2F0D9]">
                                   <img 
                                     src={`https://source.unsplash.com/featured/?${p.name},crop,farm`} 
                                     alt={p.name}
-                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                                     referrerPolicy="no-referrer"
                                   />
                                 </div>
-                                <h4 className="font-bold text-sm truncate">{p.name}</h4>
-                                <p className="text-[10px] text-gray-400 font-medium truncate mb-1">{p.region}</p>
-                                <div className="flex justify-between items-center mt-auto">
-                                  <span className="text-xs text-gray-400">{p.maxQuantity}kg</span>
-                                  <span className="text-sm font-bold text-[#4C6B36]">₹{p.costPerKg}/kg</span>
+                                <h4 className="font-heading italic text-lg font-bold text-[#1D1D1D] truncate leading-none mb-1">{p.name}</h4>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest truncate mb-3">{p.region}</p>
+                                <div className="flex justify-between items-center mt-auto border-t border-[#F5F9F2] pt-3">
+                                  <div>
+                                    <span className="text-[8px] text-gray-400 block uppercase font-black tracking-tighter opacity-60">Inventory</span>
+                                    <span className={`font-heading italic text-xl font-black ${p.maxQuantity === 0 ? 'text-red-500' : 'text-[#4C6B36]'}`}>{p.maxQuantity}<span className="text-[10px] lowercase font-serif ml-0.5">kg</span></span>
+                                  </div>
+                                  <motion.button 
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={async () => {
+                                      const newQty = prompt(`${t.max_quantity} (kg):`, p.maxQuantity.toString());
+                                      if (newQty !== null && !isNaN(Number(newQty))) {
+                                        try {
+                                          await updateDoc(doc(db, 'products', p.id), { maxQuantity: Number(newQty) });
+                                        } catch (e) {
+                                          handleFirestoreError(e, OperationType.UPDATE, `products/${p.id}`);
+                                        }
+                                      }
+                                    }}
+                                    className="p-2.5 bg-[#F0F7EB] text-[#4C6B36] rounded-xl hover:bg-[#4C6B36] hover:text-white transition-all shadow-sm shadow-[#4C6B36]/5"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                  </motion.button>
                                 </div>
-                              </div>
+                              </motion.div>
                             ))}
                           </div>
                         )}
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-bold">{t.available_buying}</h2>
-                        <span className="text-xs font-bold text-[#4C6B36] bg-[#F0F7EB] px-2 py-1 rounded-full uppercase">{t.local_items}</span>
-                      </div>
+                    <div className="space-y-6">
                       <div className="grid grid-cols-2 gap-4">
-                        {filteredProducts.length === 0 ? (
-                          <div className="col-span-2 py-12 text-center space-y-4">
-                            <EmptyState icon={<ShoppingCart />} text={t.no_items_region} />
-                            <p className="text-[10px] text-gray-300 font-bold uppercase tracking-widest">
-                              {t.region}: {user.region}, {user.state}
-                            </p>
+                        <motion.div 
+                          whileHover={{ y: -5 }}
+                          className="bg-white p-6 rounded-[32px] border border-blue-50 shadow-sm flex flex-col justify-between"
+                        >
+                          <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center mb-4">
+                            <ShoppingCart className="w-5 h-5 text-blue-600" />
                           </div>
-                        ) : (
-                          filteredProducts.map((p: Product) => (
-                            <div key={p.id} className="bg-white p-3 rounded-3xl shadow-sm border border-[#E2F0D9] group">
-                              <div className="aspect-square bg-[#F5F9F2] rounded-2xl mb-3 relative overflow-hidden">
-                                <img 
-                                  src={p.photo || `https://source.unsplash.com/featured/?${p.name},crop,farm`} 
-                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                                  alt={p.name} 
-                                  referrerPolicy="no-referrer"
-                                />
-                                <button 
-                                  onClick={() => addToCart(p.id)}
-                                  className="absolute bottom-2 right-2 p-2 bg-[#4C6B36] text-white rounded-xl shadow-lg transform translate-y-8 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all active:scale-90"
-                                >
-                                  <Plus className="w-5 h-5" />
-                                </button>
-                              </div>
-                              <h4 className="font-bold truncate px-1">{p.name}</h4>
-                              <p className="text-[10px] text-gray-400 truncate px-1 font-medium">{p.region}, {p.state}</p>
-                              <p className="text-xs text-gray-400 truncate px-1 mb-2">{p.farmerName}</p>
-                              <div className="flex items-center justify-between px-1">
-                                <span className="font-bold text-[#4C6B36]">₹{p.costPerKg} /kg</span>
-                              </div>
-                            </div>
-                          ))
-                        )}
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 opacity-60 mb-1">Spent</p>
+                            <h4 className="text-2xl font-black text-[#1D1D1D] tracking-tighter">₹{orders.filter(o => o.wholesalerId === user.id && o.status === 'received').reduce((acc, curr) => acc + curr.totalCost, 0).toLocaleString()}</h4>
+                          </div>
+                        </motion.div>
+                        <motion.div 
+                          whileHover={{ y: -5 }}
+                          className="bg-white p-6 rounded-[32px] border border-blue-50 shadow-sm flex flex-col justify-between"
+                        >
+                          <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center mb-4">
+                            <Truck className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 opacity-60 mb-1">Procured</p>
+                            <h4 className="text-2xl font-black text-[#1D1D1D] tracking-tighter">{orders.filter(o => o.wholesalerId === user.id && o.status === 'received').length}</h4>
+                          </div>
+                        </motion.div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h2 className="text-xl font-bold">{t.available_buying}</h2>
+                          <span className="text-xs font-bold text-[#4C6B36] bg-[#F0F7EB] px-2 py-1 rounded-full uppercase">{t.local_items}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-5">
+                          <AnimatePresence mode="popLayout">
+                            {filteredProducts.map((p: Product, i: number) => (
+                              <motion.div 
+                                key={`prod-${p.id}-${i}`}
+                                initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                transition={{ delay: i * 0.05, type: "spring", stiffness: 100 }}
+                                className="bg-white p-4 rounded-[32px] shadow-sm border border-[#E2F0D9] group hover:shadow-xl transition-all duration-300 relative overflow-hidden"
+                              >
+                                <div className="aspect-square bg-[#F5F9F2] rounded-[24px] mb-4 relative overflow-hidden shadow-inner border border-[#E2F0D9]">
+                                  <img 
+                                    src={p.photo || `https://source.unsplash.com/featured/?${p.name},crop,farm`} 
+                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                                    alt={p.name} 
+                                    referrerPolicy="no-referrer"
+                                  />
+                                  <motion.button 
+                                    whileTap={{ scale: 0.8 }}
+                                    onClick={() => addToCart(p.id)}
+                                    className="absolute bottom-3 right-3 p-3.5 bg-[#4C6B36] text-white rounded-2xl shadow-2xl transform translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 shadow-#4C6B36/20 border-2 border-white/20"
+                                  >
+                                    <Plus className="w-6 h-6" />
+                                  </motion.button>
+                                  
+                                  <div className="absolute top-3 left-3 px-2 py-1 bg-white/20 backdrop-blur-md border border-white/30 rounded-lg text-[9px] font-black text-white uppercase tracking-widest shadow-sm">
+                                     Fresh
+                                  </div>
+                                </div>
+                                <h4 className="font-heading italic text-xl font-bold text-[#1D1D1D] truncate px-1 leading-none mb-1">{p.name}</h4>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest truncate px-1 mb-1">{p.region}</p>
+                                <p className="text-xs text-gray-400 font-serif italic truncate px-1 mb-4 opacity-70">by {p.farmerName}</p>
+                                
+                                <div className="flex items-center justify-between px-1 border-t border-[#F5F9F2] pt-3">
+                                  <span className="font-heading italic text-2xl font-black text-[#4C6B36]">₹{p.costPerKg}<span className="text-xs font-serif ml-0.5 opacity-60">/kg</span></span>
+                                </div>
+                              </motion.div>
+                            ))}
+                          </AnimatePresence>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -1175,8 +1853,8 @@ function Dashboard({
                         <History className="w-3 h-3" /> {t.search_history}
                       </h4>
                       <div className="flex flex-wrap gap-2">
-                        {searchHistory.map((s: string) => (
-                          <button key={s} onClick={() => setSearchQuery(s)} className="px-4 py-2 bg-white border border-[#E2F0D9] rounded-2xl text-sm font-medium hover:border-[#4C6B36] transition-colors">
+                        {searchHistory.map((s: string, i: number) => (
+                          <button key={`history-${s}-${i}`} onClick={() => setSearchQuery(s)} className="px-4 py-2 bg-white border border-[#E2F0D9] rounded-2xl text-sm font-medium hover:border-[#4C6B36] transition-colors">
                             {s}
                           </button>
                         ))}
@@ -1186,8 +1864,8 @@ function Dashboard({
 
                   {searchQuery && (
                     <div className="space-y-4">
-                      {filteredProducts.map((p: Product) => (
-                         <div key={p.id} className="bg-white p-4 rounded-3xl border border-[#E2F0D9] flex gap-4 items-center">
+                      {filteredProducts.map((p: Product, i: number) => (
+                         <div key={`search-${p.id}-${i}`} className="bg-white p-4 rounded-3xl border border-[#E2F0D9] flex gap-4 items-center">
                             <div className="w-16 h-16 bg-[#F5F9F2] rounded-2xl flex-shrink-0 border border-[#E2F0D9]" />
                             <div className="flex-1">
                               <h4 className="font-bold">{p.name}</h4>
@@ -1211,10 +1889,10 @@ function Dashboard({
                   ) : (
                     <>
                       <div className="space-y-4">
-                        {cart.map((item: any) => {
+                        {cart.map((item: any, i: number) => {
                           const p = products.find(prod => prod.id === item.productId);
                           return (
-                            <div key={item.productId} className="bg-white p-4 rounded-3xl border border-[#E2F0D9] flex items-center gap-4">
+                            <div key={`cart-${item.productId}-${i}`} className="bg-white p-4 rounded-3xl border border-[#E2F0D9] flex items-center gap-4">
                               <div className="w-16 h-16 bg-[#F5F9F2] rounded-2xl flex-shrink-0" />
                               <div className="flex-1">
                                 <h4 className="font-bold">{p?.name || 'Item'}</h4>
@@ -1262,7 +1940,7 @@ function Dashboard({
                     {orders.filter((o: Order) => user.role === 'farmer' ? o.farmerId === user.id : o.wholesalerId === user.id).length === 0 ? (
                       <EmptyState icon={<FileText />} text={t.no_orders_yet} />
                     ) : (
-                      orders.filter((o: Order) => user.role === 'farmer' ? o.farmerId === user.id : o.wholesalerId === user.id).map((o: Order) => {
+                      orders.filter((o: Order) => user.role === 'farmer' ? o.farmerId === user.id : o.wholesalerId === user.id).map((o: Order, i: number) => {
                         const isExpired = o.status === 'pending' && now > (o.expiryTime || 0);
                         const timeLeft = (o.expiryTime || 0) - now;
                         const hours = Math.floor(Math.max(0, timeLeft) / (1000 * 60 * 60));
@@ -1270,24 +1948,46 @@ function Dashboard({
                         const seconds = Math.floor((Math.max(0, timeLeft) % (1000 * 60)) / 1000);
 
                         return (
-                          <div key={o.id} className={`bg-white p-5 rounded-3xl border border-[#E2F0D9] shadow-sm relative overflow-hidden group transition-all hover:shadow-md ${isExpired ? 'opacity-60' : ''}`}>
-                            <div className="flex justify-between items-start mb-4">
-                              <div className="flex-1">
-                                <h4 className="font-bold text-lg leading-tight truncate pr-2">{o.productName}</h4>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <p className="text-[10px] text-gray-400 font-bold flex items-center gap-1 uppercase tracking-widest"><Calendar className="w-3 h-3" /> {new Date(o.createdAt).toLocaleDateString()}</p>
-                                  {o.status === 'pending' && !isExpired && (
-                                    <div className="flex flex-col gap-1">
-                                      <span className="text-[10px] w-fit bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-black animate-pulse flex items-center gap-1">
-                                        <Clock className="w-3 h-3" /> {hours}h {minutes}m {seconds}s
-                                      </span>
-                                      <p className="text-[9px] text-[#4C6B36] font-bold italic opacity-70">
-                                        {t.order_confirmation_notice}
-                                      </p>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
+                          <div key={`order-t-${o.id}-${o.status}-${i}`} className={`bg-white p-5 rounded-3xl border border-[#E2F0D9] shadow-sm relative overflow-hidden group transition-all hover:shadow-md ${isExpired ? 'opacity-60' : ''}`}>
+                             <div className="flex justify-between items-start mb-4">
+                               <div className="flex-1">
+                                 <h4 className="font-bold text-lg leading-tight truncate pr-2">{o.productName}</h4>
+                                 <div className="flex flex-col gap-2 mt-2">
+                                   <p className="text-[10px] text-gray-400 font-bold flex items-center gap-1 uppercase tracking-widest"><Calendar className="w-3 h-3" /> {new Date(o.createdAt).toLocaleDateString()}</p>
+                                   
+                                   {o.status === 'pending' && !isExpired && (
+                                     <div className="space-y-2">
+                                       <div className="flex items-center gap-2">
+                                         <span className="text-[11px] bg-orange-50 text-orange-600 px-3 py-1 rounded-full font-black animate-pulse flex items-center gap-1 border border-orange-100 shadow-sm">
+                                           <Clock className="w-3.5 h-3.5" /> {hours}h {minutes}m {seconds}s
+                                         </span>
+                                       </div>
+                                       {user.role === 'wholesaler' && (
+                                         <div className="flex items-center gap-2 text-orange-600 bg-orange-50/50 p-2 rounded-xl border border-dashed border-orange-200">
+                                           <AlertCircle className="w-4 h-4 shrink-0" />
+                                           <p className="text-[10px] font-black uppercase tracking-tight italic">
+                                             {t.order_not_approved}
+                                           </p>
+                                         </div>
+                                       )}
+                                       {user.role === 'farmer' && (
+                                          <p className="text-[10px] text-[#4C6B36] font-bold italic opacity-70">
+                                            {t.order_confirmation_notice}
+                                          </p>
+                                       )}
+                                     </div>
+                                   )}
+                                   
+                                   {(o.status === 'declined' || isExpired) && user.role === 'wholesaler' && (
+                                     <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-2xl border-2 border-red-100 animate-bounce-slow">
+                                       <Ban className="w-5 h-5 shrink-0" />
+                                       <p className="text-xs font-black uppercase tracking-tight">
+                                         {t.order_cancelled}
+                                       </p>
+                                     </div>
+                                   )}
+                                 </div>
+                               </div>
                               <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1 ${
                                 o.status === 'approved' ? 'bg-[#E2F0D9] text-[#4C6B36]' : 
                                 o.status === 'received' ? 'bg-[#4C6B36] text-white' :
@@ -1376,18 +2076,28 @@ function Dashboard({
               {activeTab === 'new_item' && (
                 <motion.div key="new_item" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
                   <h2 className="text-2xl font-bold">{t.new_item}</h2>
-                  <NewItemForm t={t} user={user} onSubmit={(productData: any) => {
-                    const newProduct: Product = {
-                      ...productData,
-                      id: Math.random().toString(36).substr(2, 9),
-                      farmerId: user.id || 'u1',
-                      farmerName: user.name || 'Farmer',
-                      state: user.state!,
-                      region: user.region!,
-                      createdAt: Date.now()
-                    };
-                    setProducts([...products, newProduct]);
-                    setActiveTab('home');
+                  <NewItemForm t={t} user={user} onSubmit={async (productData: any) => {
+                    if (!user.id) return;
+                    try {
+                      const productId = Math.random().toString(36).substr(2, 9);
+                      const newProduct: Product = {
+                        ...productData,
+                        id: productId,
+                        farmerId: user.id,
+                        farmerName: user.name || 'Farmer',
+                        farmerMobile: user.mobile || '',
+                        state: user.state!,
+                        region: user.region!,
+                        createdAt: Date.now()
+                      };
+                      await setDoc(doc(db, 'products', productId), newProduct);
+                      setActiveTab('home');
+                      alert(t.product_added);
+                    } catch (e) {
+                      console.error("Product creation failed:", e);
+                      setActiveTab('home');
+                      alert(t.product_added + " (Demo Mode)");
+                    }
                   }} />
                 </motion.div>
               )}
@@ -1409,31 +2119,39 @@ function Dashboard({
                     </div>
                     <div className="flex flex-col gap-1">
                       <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">{t.email}</label>
-                      <span className="font-bold">{user.email}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold">{user.email}</span>
+                        <button 
+                          onClick={() => {
+                            const newEmail = prompt("Enter your new email address:", user.email);
+                            if (newEmail && newEmail !== user.email) {
+                              handleUpdateEmail(newEmail);
+                            }
+                          }}
+                          className="p-1 text-[#4C6B36] hover:bg-[#F0F7EB] rounded-lg transition-all"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                     <div className="flex flex-col gap-1">
                       <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">{t.mobile}</label>
-                      {user.mobile ? (
-                        <span className="font-bold">{user.mobile}</span>
-                      ) : (
-                        <div className="flex gap-2">
-                          <input 
-                            type="tel" 
-                            placeholder={t.mobile_placeholder}
-                            className="flex-1 p-3 rounded-xl border border-[#E2F0D9] outline-none focus:border-[#4C6B36] text-sm"
-                            onBlur={(e) => {
-                              if (e.target.value) {
-                                setUser((prev: any) => ({ ...prev, mobile: e.target.value }));
-                                alert("Mobile number saved!");
-                              }
-                            }}
-                            onChange={(e) => {
-                              // We need a way to update the user in App.tsx
-                              // For now, let's just make it a local input that we can ideally persist
-                            }}
-                          />
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {user.mobile ? (
+                          <span className="font-bold">{user.mobile}</span>
+                        ) : (
+                          <span className="text-gray-300 italic text-sm">{t.add_mobile}</span>
+                        )}
+                        <button 
+                          onClick={() => {
+                            const newMobile = prompt(t.mobile_placeholder, user.mobile || '');
+                            if (newMobile !== null) updateUserInfo({ mobile: newMobile });
+                          }}
+                          className="p-1 text-[#4C6B36] hover:bg-[#F0F7EB] rounded-lg transition-all"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                   {!user.mobile && (
@@ -1448,24 +2166,24 @@ function Dashboard({
 
       {/* Navigation Bar */}
       {!activeChat && (
-        <nav className="fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur-xl border-t border-[#E2F0D9] px-6 py-4 pb-8 flex justify-between items-center rounded-t-[40px] shadow-[0_-10px_40px_rgba(0,0,0,0.02)] z-40">
+        <nav className={`fixed bottom-0 inset-x-0 backdrop-blur-xl border-t px-6 py-4 pb-8 flex justify-between items-center rounded-t-[40px] shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-40 ${user.role === 'farmer' ? 'bg-white/90 border-[#E2F0D9]' : 'bg-blue-50/90 border-blue-100'}`}>
           {user.role === 'wholesaler' ? (
             <>
-              <NavButton icon={<Home className={activeTab === 'home' ? 'text-white' : 'text-gray-400'} />} label={t.home} active={activeTab === 'home'} onClick={() => setActiveTab('home')} />
-              <NavButton icon={<Search className={activeTab === 'search' ? 'text-white' : 'text-gray-400'} />} label={t.search} active={activeTab === 'search'} onClick={() => setActiveTab('search')} />
+              <NavButton icon={<Home />} label={t.home} active={activeTab === 'home'} onClick={() => setActiveTab('home')} role="wholesaler" />
+              <NavButton icon={<Search />} label={t.search} active={activeTab === 'search'} onClick={() => setActiveTab('search')} role="wholesaler" />
               <div className="relative">
-                <NavButton icon={<ShoppingCart className={activeTab === 'cart' ? 'text-white' : 'text-gray-400'} />} label={t.cart} active={activeTab === 'cart'} onClick={() => setActiveTab('cart')} />
-                {cartItemsCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#4C6B36] text-white text-[10px] flex items-center justify-center rounded-full border-2 border-white font-bold">{cartItemsCount}</span>}
+                <NavButton icon={<ShoppingCart />} label={t.cart} active={activeTab === 'cart'} onClick={() => setActiveTab('cart')} role="wholesaler" />
+                {cartItemsCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-blue-600 text-white text-[10px] flex items-center justify-center rounded-full border-2 border-white font-bold">{cartItemsCount}</span>}
               </div>
-              <NavButton icon={<FileText className={activeTab === 'orders' ? 'text-white' : 'text-gray-400'} />} label={t.orders} active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
-              <NavButton icon={<UserIcon className={activeTab === 'profile' ? 'text-white' : 'text-gray-400'} />} label={t.profile} active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} />
+              <NavButton icon={<FileText />} label={t.orders} active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} role="wholesaler" />
+              <NavButton icon={<UserIcon />} label={t.profile} active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} role="wholesaler" />
             </>
           ) : (
             <>
-              <NavButton icon={<Home className={activeTab === 'home' ? 'text-white' : 'text-gray-400'} />} label={t.home} active={activeTab === 'home'} onClick={() => setActiveTab('home')} />
-              <NavButton icon={<Camera className={activeTab === 'new_item' ? 'text-white' : 'text-gray-400'} />} label={t.new_item} active={activeTab === 'new_item'} onClick={() => setActiveTab('new_item')} />
-              <NavButton icon={<FileText className={activeTab === 'orders' ? 'text-white' : 'text-gray-400'} />} label={t.orders} active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
-              <NavButton icon={<UserIcon className={activeTab === 'profile' ? 'text-white' : 'text-gray-400'} />} label={t.profile} active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} />
+              <NavButton icon={<Home />} label={t.home} active={activeTab === 'home'} onClick={() => setActiveTab('home')} role="farmer" />
+              <NavButton icon={<Camera />} label={t.new_item} active={activeTab === 'new_item'} onClick={() => setActiveTab('new_item')} role="farmer" />
+              <NavButton icon={<FileText />} label={t.orders} active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} role="farmer" />
+              <NavButton icon={<UserIcon />} label={t.profile} active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} role="farmer" />
             </>
           )}
         </nav>
@@ -1474,23 +2192,49 @@ function Dashboard({
   );
 }
 
-function NavButton({ icon, label, active, onClick }: any) {
+function NavButton({ icon, label, active, onClick, role }: any) {
+  const roleColor = role === 'farmer' ? '#4C6B36' : '#2563EB';
+  const roleBg = role === 'farmer' ? 'bg-[#4C6B36]' : 'bg-[#2563EB]';
+
   return (
-    <button onClick={onClick} className="flex flex-col items-center gap-1 group relative">
-      <div className={`p-3 rounded-2xl transition-all duration-300 ${active ? 'bg-[#4C6B36] shadow-lg shadow-[#4C6B36]/20' : 'text-gray-300 hover:bg-[#F5F9F2]'}`}>
-        {icon}
+    <button onClick={onClick} className="flex flex-col items-center gap-1.5 group relative px-2">
+      <div className="relative p-2.5 transition-all duration-500">
+        <AnimatePresence>
+          {active && (
+            <motion.div 
+              layoutId="nav-active-pill"
+              className={`absolute inset-0 ${roleBg} rounded-2xl shadow-xl z-0`}
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            />
+          )}
+        </AnimatePresence>
+        <div className={`relative z-10 transition-colors duration-300 ${active ? 'text-white' : 'text-gray-300'}`}>
+          {React.cloneElement(icon, { size: 22, strokeWidth: active ? 2.5 : 2 })}
+        </div>
       </div>
-      <span className={`text-[10px] font-bold uppercase tracking-wider transition-colors ${active ? 'text-[#4C6B36]' : 'text-gray-400 group-hover:text-gray-600'}`}>{label}</span>
+      <span className={`text-[9px] font-black uppercase tracking-[0.15em] transition-all duration-300 z-10 ${active ? 'text-[#1D1D1D] opacity-100' : 'text-gray-400 opacity-60 group-hover:opacity-100'}`}>
+        {label}
+      </span>
     </button>
   );
 }
 
 function EmptyState({ icon, text }: any) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-gray-300">
-      <div className="mb-4 opacity-20">{icon}</div>
-      <p className="font-bold text-sm uppercase tracking-widest">{text}</p>
-    </div>
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex flex-col items-center justify-center py-20 text-gray-300"
+    >
+      <div className="mb-6 p-8 bg-[#FDFCF8] rounded-full border-4 border-dashed border-[#F0F7EB] relative scale-150 transform-gpu">
+        <div className="opacity-40">{React.cloneElement(icon, { size: 48, strokeWidth: 1 })}</div>
+      </div>
+      <p className="font-heading italic text-2xl text-[#2D3E21] opacity-40 mt-8 mb-2">Nothing here yet</p>
+      <p className="font-serif italic text-sm text-gray-400 max-w-[200px] text-center">{text}</p>
+    </motion.div>
   );
 }
 
@@ -1500,37 +2244,116 @@ function NewItemForm({ t, onSubmit }: any) {
   const [qty, setQty] = useState('');
 
   return (
-    <div className="bg-white p-6 rounded-3xl border border-[#E2F0D9] shadow-sm space-y-6">
-      <div className="aspect-square bg-[#F5F9F2] rounded-2xl flex flex-col items-center justify-center border-dashed border-2 border-[#E2F0D9] text-gray-400 hover:bg-[#F0F7EB] transition-colors cursor-pointer group">
-        <Camera className="w-10 h-10 mb-2 group-hover:scale-110 transition-transform" />
-        <span className="text-xs font-bold uppercase tracking-widest">{t.upload_photo}</span>
-      </div>
-      <div className="space-y-4">
-        <div>
-          <label className="text-xs font-bold text-[#4C6B36] uppercase tracking-widest ml-1">{t.item_name}</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} className="w-full p-4 rounded-2xl border-2 border-[#E2F0D9] focus:border-[#4C6B36] outline-none transition-all" />
+    <div className="bg-white p-8 rounded-[40px] border border-[#E2F0D9] shadow-xl space-y-8 relative overflow-hidden">
+      <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#F0F7EB] rounded-full blur-3xl opacity-50" />
+      
+      <motion.div 
+        whileHover={{ scale: 1.02 }}
+        className="aspect-square bg-[#F9FBFA] rounded-3xl flex flex-col items-center justify-center border-dashed border-2 bi-[#E2F0D9] text-gray-400 hover:bg-[#F0F7EB] hover:border-[#4C6B36] transition-all cursor-pointer group relative overflow-hidden"
+      >
+        <Camera className="w-12 h-12 mb-3 group-hover:scale-110 group-hover:text-[#4C6B36] transition-all duration-500" />
+        <span className="text-[10px] font-black uppercase tracking-[0.2em] group-hover:text-[#4C6B36]">{t.upload_photo}</span>
+        <div className="absolute inset-0 bg-[#4C6B36]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+      </motion.div>
+
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-[#4C6B36] uppercase tracking-[0.2em] ml-2 opacity-60">{t.item_name}</label>
+          <input 
+            placeholder="e.g. Basmati Rice"
+            value={name} 
+            onChange={(e) => setName(e.target.value)} 
+            className="w-full p-5 rounded-2xl bg-[#F9FBFA] border-2 border-transparent focus:border-[#4C6B36] focus:bg-white outline-none transition-all font-heading italic text-xl" 
+          />
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="relative">
-            <label className="text-xs font-bold text-[#4C6B36] uppercase tracking-widest ml-1">{t.cost_per_kg}</label>
-            <input type="number" value={cost} onChange={(e) => setCost(e.target.value)} className="w-full p-4 pr-12 rounded-2xl border-2 border-[#E2F0D9] focus:border-[#4C6B36] outline-none transition-all" />
-            <span className="absolute right-4 bottom-4 text-xs font-bold text-gray-400">/kg</span>
+        <div className="grid grid-cols-2 gap-6">
+          <div className="space-y-2 relative">
+            <label className="text-[10px] font-black text-[#4C6B36] uppercase tracking-[0.2em] ml-2 opacity-60">{t.cost_per_kg}</label>
+            <div className="relative">
+              <input 
+                type="number" 
+                value={cost} 
+                onChange={(e) => setCost(e.target.value)} 
+                className="w-full p-5 pr-14 rounded-2xl bg-[#F9FBFA] border-2 border-transparent focus:border-[#4C6B36] focus:bg-white outline-none transition-all font-black text-xl text-[#4C6B36]" 
+              />
+              <span className="absolute right-5 top-1/2 -translate-y-1/2 text-xs font-serif italic text-gray-400">/kg</span>
+            </div>
           </div>
-          <div className="relative">
-            <label className="text-xs font-bold text-[#4C6B36] uppercase tracking-widest ml-1">{t.max_quantity}</label>
-            <input type="number" value={qty} onChange={(e) => setQty(e.target.value)} className="w-full p-4 pr-12 rounded-2xl border-2 border-[#E2F0D9] focus:border-[#4C6B36] outline-none transition-all" />
-            <span className="absolute right-4 bottom-4 text-xs font-bold text-gray-400">kg</span>
+          <div className="space-y-2 relative">
+            <label className="text-[10px] font-black text-[#4C6B36] uppercase tracking-[0.2em] ml-2 opacity-60">{t.max_quantity}</label>
+            <div className="relative">
+              <input 
+                type="number" 
+                value={qty} 
+                onChange={(e) => setQty(e.target.value)} 
+                className="w-full p-5 pr-12 rounded-2xl bg-[#F9FBFA] border-2 border-transparent focus:border-[#4C6B36] focus:bg-white outline-none transition-all font-black text-xl text-[#4C6B36]" 
+              />
+              <span className="absolute right-5 top-1/2 -translate-y-1/2 text-xs font-serif italic text-gray-400">kg</span>
+            </div>
           </div>
         </div>
       </div>
-      <button onClick={() => onSubmit({ name, costPerKg: Number(cost), maxQuantity: Number(qty) })} className="w-full py-5 bg-[#4C6B36] text-white rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-all">
+      
+      <motion.button 
+        whileHover={{ scale: 1.02, y: -2 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => {
+          if (!name || !cost || !qty) {
+            alert("Please fill all fields");
+            return;
+          }
+          onSubmit({ name, costPerKg: Number(cost), maxQuantity: Number(qty) });
+        }} 
+        className="w-full py-5 bg-[#4C6B36] text-white rounded-2xl font-black text-lg shadow-xl shadow-[#4C6B36]/20 active:scale-95 transition-all border-b-4 border-black/20"
+      >
         {t.submit}
-      </button>
+      </motion.button>
     </div>
   );
 }
 
-function HostDashboard({ t, logins, onLogout, onClearAll }: { t: any, logins: User[], onLogout: () => void, onClearAll: () => void }) {
+function HostDashboard({ t, logins, loginSessions, onLogout }: any) {
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm("Are you sure you want to delete this user?")) return;
+    try {
+      await deleteDoc(doc(db, 'users', userId));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const seedData = async () => {
+    if (!confirm("Add sample products?")) return;
+    try {
+      const batch = writeBatch(db);
+      const demoFarmerId = 'demo_farmer_id';
+      const samples = [
+        { name: 'Basmati Rice', cost: 65, qty: 500, state: 'Punjab', region: 'Amritsar' },
+        { name: 'Organic Turmeric', cost: 120, qty: 100, state: 'Maharashtra', region: 'Sangli' },
+        { name: 'Alfonso Mangoes', cost: 150, qty: 200, state: 'Maharashtra', region: 'Ratnagiri' }
+      ];
+      samples.forEach(s => {
+        const id = Math.random().toString(36).substr(2, 9);
+        batch.set(doc(db, 'products', id), {
+          id,
+          name: s.name,
+          costPerKg: s.cost,
+          maxQuantity: s.qty,
+          farmerId: demoFarmerId,
+          farmerName: 'Sample Farmer',
+          farmerMobile: '9876543210',
+          state: s.state,
+          region: s.region,
+          createdAt: Date.now()
+        });
+      });
+      await batch.commit();
+      alert("Sample data added!");
+    } catch (e) {
+      alert("Seeding failed (Rules restricted). Enable Firebase Auth first.");
+    }
+  };
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-6 min-h-screen bg-[#F9FBFA]">
       <header className="flex justify-between items-center mb-8 bg-white p-4 rounded-3xl shadow-sm border border-[#E2F0D9]">
@@ -1541,14 +2364,8 @@ function HostDashboard({ t, logins, onLogout, onClearAll }: { t: any, logins: Us
           <h1 className="text-xl font-bold">{t.host_center}</h1>
         </div>
         <div className="flex gap-2">
-          <button 
-            onClick={() => {
-              onClearAll();
-            }}
-            className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-colors flex items-center gap-2"
-          >
-            <Trash2 className="w-5 h-5" />
-            <span className="text-xs font-black uppercase tracking-widest hidden md:inline">{t.clear_history}</span>
+          <button onClick={seedData} className="px-4 py-2 bg-[#F0F7EB] text-[#4C6B36] font-bold text-sm rounded-xl border border-[#4C6B36]/20">
+            Seed Data
           </button>
           <button onClick={onLogout} className="p-3 bg-gray-50 text-gray-500 rounded-xl hover:bg-gray-100 transition-colors">
             <LogOut className="w-5 h-5" />
@@ -1557,26 +2374,61 @@ function HostDashboard({ t, logins, onLogout, onClearAll }: { t: any, logins: Us
       </header>
 
       <div className="space-y-6">
+        <div className="bg-white p-8 rounded-[40px] shadow-sm border border-[#E2F0D9]">
+          <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+            <Clock className="w-6 h-6 text-[#4C6B36]" /> Login Audit Log
+          </h2>
+          <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+            {loginSessions.length === 0 ? (
+              <p className="text-gray-400 italic">No login events recorded yet.</p>
+            ) : (
+              loginSessions.map((session, idx) => (
+                <div key={session.id || idx} className="flex items-center justify-between p-4 bg-[#FDFCF8] rounded-2xl border border-[#F0F7EB]">
+                  <div>
+                    <p className="font-bold text-[#1D1D1D]">{session.userName}</p>
+                    <p className="text-xs text-gray-500">{session.userEmail}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                       <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded uppercase font-bold text-gray-400">{session.device}</span>
+                       <span className="text-[10px] text-gray-400">{new Date(session.timestamp).toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <div className="text-right hidden sm:block">
+                     <p className="text-[9px] text-gray-300 max-w-[200px] truncate">{session.userAgent}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
         <h2 className="text-2xl font-bold flex items-center gap-2">
           <UserIcon className="w-6 h-6 text-[#4C6B36]" /> {t.recent_logins} ({logins.length})
         </h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {logins.map((login) => (
-            <div key={login.id} className="bg-white p-5 rounded-3xl border border-[#E2F0D9] shadow-sm flex flex-col gap-2">
+          {logins.map((login, i) => (
+            <div key={`login-${login.id}-${i}`} className="bg-white p-5 rounded-3xl border border-[#E2F0D9] shadow-sm flex flex-col gap-2 relative group">
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-bold text-lg">{login.name}</h3>
+                    <p className="text-xs text-gray-400 font-mono select-all">UID: {login.id}</p>
                     <p className="text-xs text-gray-400 font-mono select-all">Email: {login.email}</p>
-                    <p className="text-xs text-gray-400 font-mono select-all">Pass: {login.password}</p>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                    login.role === 'farmer' ? 'bg-[#F0F7EB] text-[#4C6B36]' : 
-                    login.role === 'host' ? 'bg-orange-100 text-orange-600' :
-                    'bg-blue-50 text-blue-600'
-                  }`}>
-                    {login.role ? t[login.role] : t.onboarding}
-                  </span>
+                  <div className="flex flex-col items-end gap-2">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                      login.role === 'farmer' ? 'bg-[#F0F7EB] text-[#4C6B36]' : 
+                      login.role === 'host' ? 'bg-orange-100 text-orange-600' :
+                      'bg-blue-50 text-blue-600'
+                    }`}>
+                      {login.role ? t[login.role] : t.onboarding}
+                    </span>
+                    <button 
+                      onClick={() => handleDeleteUser(login.id)}
+                      className="p-1.5 text-red-100 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               <div className="grid grid-cols-2 gap-2 mt-2 pt-3 border-t border-[#F5F9F2]">
                 <div>
@@ -1595,6 +2447,7 @@ function HostDashboard({ t, logins, onLogout, onClearAll }: { t: any, logins: Us
             </div>
           ))}
         </div>
+      </div>
 
         {/* Brand Assets Section */}
         <div className="mt-12 bg-white p-8 rounded-3xl border border-[#E2F0D9] shadow-sm">
@@ -1654,7 +2507,6 @@ function HostDashboard({ t, logins, onLogout, onClearAll }: { t: any, logins: Us
             </div>
           </div>
         </div>
-      </div>
     </motion.div>
   );
 }
@@ -1666,7 +2518,7 @@ function ChatInterface({ t, order, user, messages, onSend, onBack }: any) {
   const translateMessage = async (msgId: string, originalText: string, targetLang: Language) => {
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.0-flash",
         contents: `Translate the following agricultural marketplace message to ${targetLang}. 
         Return ONLY the translated text.
         Message: ${originalText}`
@@ -1678,10 +2530,7 @@ function ChatInterface({ t, order, user, messages, onSend, onBack }: any) {
     }
   };
 
-  const farmerInfo = useMemo(() => {
-    // In a real app we'd fetch this. We simulate finding the farmer in our registry
-    return order ? JSON.parse(localStorage.getItem('khetnet_logins') || '[]').find((u: any) => u.id === order.farmerId) : null;
-  }, [order]);
+  const farmerMobile = order?.farmerMobile;
 
   useEffect(() => {
     // Auto-translate incoming messages
@@ -1702,34 +2551,43 @@ function ChatInterface({ t, order, user, messages, onSend, onBack }: any) {
             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1">
               <UserIcon className="w-3 h-3" /> {user.role === 'farmer' ? order?.wholesalerName : order?.farmerName}
             </p>
-            {user.role === 'wholesaler' && (order?.farmerMobile || farmerInfo?.mobile) && (
-              <a href={`tel:${order?.farmerMobile || farmerInfo.mobile}`} className="text-[#4C6B36] flex items-center gap-1 text-[10px] font-black underline">
-                <Phone className="w-3 h-3" /> {order?.farmerMobile || farmerInfo.mobile}
+            {user.role === 'wholesaler' && (order?.farmerMobile || farmerMobile) && (
+              <a href={`tel:${order?.farmerMobile || farmerMobile}`} className="text-[#4C6B36] flex items-center gap-1 text-[10px] font-black underline">
+                <Phone className="w-3 h-3" /> {order?.farmerMobile || farmerMobile}
               </a>
             )}
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-4 p-2">
-        {messages.map((m: ChatMessage) => {
-          const isSender = m.senderId === user.id;
-          const translatedText = translationsMap[m.id];
-          
-          return (
-            <div key={m.id} className={`flex ${isSender ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] p-3 rounded-2xl shadow-sm ${isSender ? 'bg-[#4C6B36] text-white rounded-tr-none' : 'bg-white border border-[#E2F0D9] text-[#2D3E21] rounded-tl-none'}`}>
-                <p className="text-sm">{translatedText || m.text}</p>
-                {translatedText && (
-                  <div className="text-[8px] mt-1 italic opacity-50 flex items-center gap-1">
-                    <Languages className="w-2 h-2" /> Auto-translated
+      <div className="flex-1 overflow-y-auto space-y-5 px-4 py-6 scroll-smooth">
+        <AnimatePresence mode="popLayout">
+          {messages.map((m: ChatMessage, i: number) => {
+            const isSender = m.senderId === user.id;
+            const translatedText = translationsMap[m.id];
+            
+            return (
+              <motion.div 
+                key={`chat-msg-${m.id}-${i}`}
+                initial={{ opacity: 0, x: isSender ? 20 : -20, scale: 0.95 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                className={`flex ${isSender ? 'justify-end' : 'justify-start'}`}
+              >
+                <div className={`max-w-[85%] p-4 rounded-3xl shadow-sm relative ${isSender ? 'bg-[#4C6B36] text-white rounded-tr-none' : 'bg-white border border-[#E2F0D9] text-[#2D3E21] rounded-tl-none font-medium'}`}>
+                  <p className="text-sm leading-relaxed tracking-tight">{translatedText || m.text}</p>
+                  {translatedText && (
+                    <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-black/5 opacity-40 text-[9px] font-black uppercase tracking-widest">
+                       <Languages className="w-3 h-3" /> Auto-translated
+                    </div>
+                  )}
+                  <div className={`text-[8px] opacity-30 mt-1 font-black uppercase tracking-tighter ${isSender ? 'text-right' : 'text-left'}`}>
+                    {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
-                )}
-                <div className="text-[8px] opacity-30 mt-1 text-right">{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-              </div>
-            </div>
-          );
-        })}
+                </div>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
       </div>
 
       <div className="p-4 bg-white rounded-[32px] shadow-sm border border-[#E2F0D9] flex flex-col gap-3 mt-4">

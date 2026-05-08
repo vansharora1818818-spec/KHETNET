@@ -1,10 +1,12 @@
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;600;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;600;800&family=Cormorant+Garamond:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Outfit", sans-serif;
+  --font-serif: "Cormorant Garamond", serif;
+  --font-heading: "Playfair Display", serif;
   
   --color-brand-primary: #4C6B36;
   --color-brand-light: #F0F7EB;
@@ -12,10 +14,10 @@
 }
 
 body {
-  @apply font-sans;
+  @apply font-sans bg-[#FDFCF8];
 }
 
 h1, h2, h3 {
-  @apply font-display tracking-tight text-[#2D3E21];
+  @apply font-heading tracking-tight text-[#2D3E21] font-bold;
 }
 

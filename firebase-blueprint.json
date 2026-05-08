@@ -1,0 +1,83 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account information including roles and preferences.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["farmer", "wholesaler", "host"] },
+        "age": { "type": "number" },
+        "mobile": { "type": "string" },
+        "state": { "type": "string" },
+        "region": { "type": "string" },
+        "language": { "type": "string" }
+      },
+      "required": ["name", "email"]
+    },
+    "Product": {
+      "title": "Agricultural Product",
+      "description": "Items listed by farmers for sale.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "costPerKg": { "type": "number" },
+        "maxQuantity": { "type": "number" },
+        "farmerId": { "type": "string" },
+        "farmerName": { "type": "string" },
+        "farmerMobile": { "type": "string" },
+        "state": { "type": "string" },
+        "region": { "type": "string" },
+        "createdAt": { "type": "number" }
+      }
+    },
+    "Order": {
+      "title": "Marketplace Order",
+      "description": "Transaction records between wholesalers and farmers.",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string" },
+        "productName": { "type": "string" },
+        "farmerId": { "type": "string" },
+        "wholesalerId": { "type": "string" },
+        "quantity": { "type": "number" },
+        "totalCost": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "approved", "declined", "received"] },
+        "timestamp": { "type": "number" },
+        "expiryTime": { "type": "number" }
+      }
+    },
+    "LoginSession": {
+      "title": "Login Session Log",
+      "description": "Log of user login events for administrative tracking.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "device": { "type": "string" },
+        "userAgent": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": "User",
+      "description": "Root collection for user profiles."
+    },
+    "products": {
+      "schema": "Product",
+      "description": "Global marketplace for agricultural goods."
+    },
+    "orders": {
+      "schema": "Order",
+      "description": "Active and historical trade records."
+    },
+    "login_sessions": {
+      "schema": "LoginSession",
+      "description": "Audit trail for user access."
+    }
+  }
+}

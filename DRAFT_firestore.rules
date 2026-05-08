@@ -1,0 +1,115 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- GLOBAL HELPERS ---
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    // Admin check: strictly against a trusted 'admins' collection
+    function isAdmin() { 
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); 
+    }
+
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- USERS ---
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.name is string && data.name.size() <= 100 &&
+               data.email is string && data.email.size() <= 100 &&
+               data.age is number && data.age >= 18 &&
+               data.mobile is string && data.mobile.size() <= 20;
+      }
+
+      allow get: if isSignedIn(); // Allow get for profiles (roles check)
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && (incoming().role == null || incoming().role in ['farmer', 'wholesaler']);
+      allow update: if (isOwner(userId) || isAdmin()) && (
+        // Action: Update basic Profile
+        (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'age', 'mobile', 'email', 'language', 'role']) && 
+         isValidUser(incoming()) && 
+         (existing().role == null || incoming().role == existing().role)) || // Role stickiness
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // --- PRODUCTS ---
+    match /products/{productId} {
+      function isValidProduct(data) {
+        return data.name is string && data.name.size() <= 100 &&
+               data.costPerKg is number && data.costPerKg > 0 &&
+               data.maxQuantity is number && data.maxQuantity >= 0 &&
+               isValidId(data.farmerId);
+      }
+
+      allow list, get: if isSignedIn();
+      allow create: if isSignedIn() && isValidProduct(incoming()) && isOwner(incoming().farmerId);
+      allow update: if isSignedIn() && (
+        // Farmer Update
+        (isOwner(existing().farmerId) && isValidProduct(incoming())) ||
+        // Wholesaler Purchase (Stock deduction)
+        (incoming().diff(existing()).affectedKeys().hasOnly(['maxQuantity']) && incoming().maxQuantity >= 0) ||
+        isAdmin()
+      );
+      allow delete: if isAdmin() || isOwner(existing().farmerId);
+    }
+
+    // --- ORDERS ---
+    match /orders/{orderId} {
+      function isValidOrder(data) {
+        return data.productName is string &&
+               data.totalCost is number &&
+               data.quantity is number && data.quantity > 0 &&
+               isValidId(data.productId) &&
+               isValidId(data.farmerId) &&
+               isValidId(data.wholesalerId);
+      }
+
+      allow get: if isSignedIn() && (isOwner(existing().farmerId) || isOwner(existing().wholesalerId) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.farmerId == request.auth.uid || resource.data.wholesalerId == request.auth.uid || isAdmin());
+      
+      allow create: if isSignedIn() && isValidOrder(incoming()) && isOwner(incoming().wholesalerId);
+      allow update: if isSignedIn() && (
+        // Farmer Approval/Decline
+        (isOwner(existing().farmerId) && incoming().diff(existing()).affectedKeys().hasOnly(['status']) && incoming().status in ['approved', 'declined']) ||
+        // Wholesaler Mark Received
+        (isOwner(existing().wholesalerId) && incoming().diff(existing()).affectedKeys().hasOnly(['status']) && incoming().status == 'received' && existing().status == 'approved') ||
+        isAdmin()
+      );
+    }
+
+    // --- CHATS ---
+    match /chats/{orderId} {
+      allow read: if isSignedIn() && (request.auth.uid in existing().participants || isAdmin());
+      allow create: if isSignedIn() && (request.auth.uid in incoming().participants); // Only if you are a participant
+      allow update: if isSignedIn() && (request.auth.uid in existing().participants) && (incoming().diff(existing()).affectedKeys().hasOnly(['lastMessage', 'lastUpdate']));
+      
+      match /messages/{msgId} {
+        allow read: if isSignedIn() && (get(/databases/$(database)/documents/chats/$(orderId)).data.participants.hasAny([request.auth.uid]) || isAdmin());
+        allow create: if isSignedIn() && isOwner(incoming().senderId) && (get(/databases/$(database)/documents/chats/$(orderId)).data.participants.hasAny([request.auth.uid]));
+      }
+    }
+
+    // --- ADMINS (Read-only for rules) ---
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+    }
+    
+    // Connection test
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}
