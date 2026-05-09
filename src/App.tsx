@@ -641,13 +641,13 @@ function LandingPage({ t, onNext }: { t: any, onNext: () => void }) {
       ) {
         // This is the most common case for new projects (merged errors)
         // We show a message then move to registration
-        setLoginError("Account not found. Let's create one for you!");
+        setLoginError("Account not found. Preparing registration form...");
         setTimeout(() => {
           if (stage === 'login') {
             setStage('details');
             setLoginError(null);
           }
-        }, 1200);
+        }, 800);
       } else if (errorCode === 'auth/wrong-password') {
         setLoginError("Incorrect password. Please try again.");
       } else if (errorCode === 'auth/too-many-requests') {
@@ -865,17 +865,20 @@ function LandingPage({ t, onNext }: { t: any, onNext: () => void }) {
               <KhetNetLogo className="w-20 h-20" />
             </div>
             <h1 className="text-4xl font-black tracking-tight text-[#2D3E21]">KhetNet</h1>
-          <div className="grid grid-cols-2 gap-4 w-full max-w-sm">
-            {[
-              { id: 'hi', label: 'हिंदी' },
-              { id: 'en', label: 'English' },
-              { id: 'ta', label: 'தமிழ்' },
-              { id: 'te', label: 'తెలుగు' },
-            ].map((l, i) => (
+            <div className="grid grid-cols-2 gap-4 w-full max-w-md">
+              {[
+                { id: 'en', label: 'English' },
+                { id: 'hi', label: 'हिंदी' },
+                { id: 'pa', label: 'ਪੰਜਾਬੀ' },
+                { id: 'ta', label: 'தமிழ்' },
+                { id: 'te', label: 'తెలుగు' },
+                { id: 'kn', label: 'ಕನ್ನಡ' },
+                { id: 'ml', label: 'മലയാളം' },
+              ].map((l, i, arr) => (
               <button
                 key={`lang-opt-${l.id}-${i}`}
                 onClick={() => handleLanguageSelect(l.id as Language)}
-                className="p-5 rounded-2xl border-2 border-[#E2F0D9] bg-white hover:border-[#4C6B36] hover:bg-[#F0F7EB] transition-all text-xl font-medium shadow-sm active:scale-95"
+                className={`p-5 rounded-2xl border-2 border-[#E2F0D9] bg-white hover:border-[#4C6B36] hover:bg-[#F0F7EB] transition-all text-xl font-medium shadow-sm active:scale-95 ${i === arr.length - 1 && arr.length % 2 !== 0 ? 'col-span-2' : ''}`}
               >
                 {l.label}
               </button>
@@ -1182,17 +1185,6 @@ function LoginScreen({ t, username, setUsername, password, setPassword, showPass
               </>
             )}
           </button>
-
-          <div className="text-center mt-6">
-            <p className="text-sm text-gray-500 mb-2">Don't have an account?</p>
-            <button 
-              type="button"
-              onClick={() => onSkip()} 
-              className="text-[#4C6B36] font-extrabold hover:underline transition-all"
-            >
-              Register New Account
-            </button>
-          </div>
         </div>
 
       </form>
@@ -2354,6 +2346,43 @@ function HostDashboard({ t, logins, loginSessions, onLogout }: any) {
     }
   };
 
+  const handleClearLogs = async () => {
+    if (!confirm("Delete all login activity history?")) return;
+    try {
+      const q = query(collection(db, 'login_sessions'));
+      const snapshot = await getDocs(q);
+      const batch = writeBatch(db);
+      snapshot.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      alert("Activity history cleared!");
+    } catch (e) {
+      console.error(e);
+      alert("Failed to clear logs (Permission denied - Check Security Rules)");
+    }
+  };
+
+  const handleClearUsers = async () => {
+    if (!confirm("Delete all registered users? (Excludes Admin)")) return;
+    try {
+      const q = query(collection(db, 'users'));
+      const snapshot = await getDocs(q);
+      const batch = writeBatch(db);
+      let count = 0;
+      snapshot.docs.forEach(d => {
+        const data = d.data();
+        if (data.email !== 'admin@khetnet.com' && data.role !== 'host') {
+          batch.delete(d.ref);
+          count++;
+        }
+      });
+      await batch.commit();
+      alert(`${count} users removed!`);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to clear users.");
+    }
+  };
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-6 min-h-screen bg-[#F9FBFA]">
       <header className="flex justify-between items-center mb-8 bg-white p-4 rounded-3xl shadow-sm border border-[#E2F0D9]">
@@ -2375,9 +2404,17 @@ function HostDashboard({ t, logins, loginSessions, onLogout }: any) {
 
       <div className="space-y-6">
         <div className="bg-white p-8 rounded-[40px] shadow-sm border border-[#E2F0D9]">
-          <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-            <Clock className="w-6 h-6 text-[#4C6B36]" /> Login Audit Log
-          </h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <Clock className="w-6 h-6 text-[#4C6B36]" /> {t.activity_history || "Login History"}
+            </h2>
+            <button 
+              onClick={handleClearLogs}
+              className="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors flex items-center gap-1"
+            >
+              <Trash2 className="w-3 h-3" /> Clear History
+            </button>
+          </div>
           <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
             {loginSessions.length === 0 ? (
               <p className="text-gray-400 italic">No login events recorded yet.</p>
@@ -2401,9 +2438,17 @@ function HostDashboard({ t, logins, loginSessions, onLogout }: any) {
           </div>
         </div>
 
-        <h2 className="text-2xl font-bold flex items-center gap-2">
-          <UserIcon className="w-6 h-6 text-[#4C6B36]" /> {t.recent_logins} ({logins.length})
-        </h2>
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <UserIcon className="w-6 h-6 text-[#4C6B36]" /> {t.recent_logins} ({logins.length})
+          </h2>
+          <button 
+            onClick={handleClearUsers}
+            className="text-[10px] font-black uppercase tracking-widest text-[#4C6B36] hover:underline"
+          >
+            Wipe All Users
+          </button>
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {logins.map((login, i) => (

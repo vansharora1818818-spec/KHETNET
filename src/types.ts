@@ -1,5 +1,5 @@
 
-export type Language = 'en' | 'hi' | 'ta' | 'te';
+export type Language = 'en' | 'hi' | 'ta' | 'te' | 'pa' | 'kn' | 'ml';
 
 export interface User {
   id: string;
