@@ -12,6 +12,9 @@ export interface User {
   state: string;
   region: string;
   language: Language;
+  isSubscribed?: boolean;
+  subscriptionTier?: 'gold' | 'platinum' | null;
+  isSuspended?: boolean;
 }
 
 export interface Product {

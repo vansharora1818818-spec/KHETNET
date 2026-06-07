@@ -2,5 +2,5 @@
   "name": "KhetNet",
   "description": "A marketplace connecting farmers and wholesalers with multi-language support, region-based matching, and AI assistance.",
   "requestFramePermissions": ["notifications"],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
