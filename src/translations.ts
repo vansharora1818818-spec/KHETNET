@@ -1,5 +1,5 @@
 
-export const translations = {
+const rawTranslations = {
   en: {
     select_language: "Select Language",
     get_started: "Get Started",
@@ -114,6 +114,11 @@ export const translations = {
     connecting_bharat: "Connecting Bharat's Farms",
     product_added: "Product Added Successfully!",
     all_rights_reserved: "All rights reserved. KhetNet Agriculture Solutions.",
+    details_demographics_msg: "Please declare basic demographics to receive matching crop alerts.",
+    age_min_error: "You must be 18 years or older to trade on KhetNet.",
+    age_max_error: "Age cannot exceed 90 years.",
+    mobile_error: "Please enter a valid 10-digit Indian Mobile.",
+    lock_profile_details: "Lock Profile Details",
   },
   hi: {
     select_language: "भाषा चुनें",
@@ -229,6 +234,11 @@ export const translations = {
     connecting_bharat: "भारत के खेतों को जोड़ना",
     product_added: "उत्पाद सफलतापूर्वक जोड़ा गया!",
     all_rights_reserved: "सर्वाधिकार सुरक्षित। खेतनेट कृषि समाधान।",
+    details_demographics_msg: "अनुकूल फसल अलर्ट प्राप्त करने के लिए कृपया बुनियादी जनसांख्यिकी घोषित करें।",
+    age_min_error: "खेतनेट पर व्यापार करने के लिए आपकी आयु 18 वर्ष या उससे अधिक होनी चाहिए।",
+    age_max_error: "आयु 90 वर्ष से अधिक नहीं हो सकती।",
+    mobile_error: "कृपया एक वैध 10-अंकीय भारतीय मोबाइल नंबर दर्ज करें।",
+    lock_profile_details: "प्रोफ़ाइल विवरण सुरक्षित करें",
   },
   ta: {
     select_language: "மொழியைத் தேர்ந்தெடுக்கவும்",
@@ -292,21 +302,21 @@ export const translations = {
     hi: "வணக்கம்",
     current_location: "தற்போதைய இருப்பிடத்தை அனுப்பு",
     chat_bot_help: "நான் உங்களுக்கு எப்படி உதவ முடியும்?",
-    complete_profile_msg: "சிறந்த அனுபவத்திற்கு உங்கள் சுயவிவரத்தைப் பூர்த்தி செய்யவும்.",
+    complete_profile_msg: "சிறந்த அனுபவத்திற்கு உங்கள் சுயவிவரத்தை பூர்த்தி செய்யவும்.",
     add_mobile: "கைபேசி எண்ணைச் சேர்க்கவும்",
-    welcome_to_khetnet: "KhetNet க்குக் வரவேற்கிறோம்",
+    welcome_to_khetnet: "கேட்நெட்டிற்கு வரவேற்கிறோம்",
     language_selection: "மொழி தேர்வு",
     recently_added: "சமீபத்தில் சேர்க்கப்பட்டது",
-    no_products: "தயாரிப்புகள் எதுவும் காணப்படவில்லை",
-    price_history: "விலை வரலாறு",
+    no_products: "தயாரிப்புகள் எதுவும் கிடைக்கவில்லை",
+    price_history: "விலะ வரலாறு",
     market_insights: "சந்தை நுண்ணறிவு",
-    top_categories: "சிறந்த வகைகள்",
+    top_categories: "முன்னணி பிரிவுகள்",
     chat_assistant: "உதவியாளருடன் அரட்டையடிக்கவும்",
     type_message: "உங்கள் செய்தியைத் தட்டச்சு செய்யவும்...",
     send: "அனுப்பு",
     logout: "வெளியேறு",
-    clear_history: "வரலாற்றைத் துடைக்கவும்",
-    cart_empty: "உங்கள் கூடை காலியாக உள்ளது",
+    clear_history: "வரலாற்றை அழி",
+    cart_empty: "உங்கள் வண்டி காலியாக உள்ளது",
     checkout: "செக்அவுட்",
     order_details: "ஆர்டர் விவரங்கள்",
     status: "நிலை",
@@ -344,6 +354,11 @@ export const translations = {
     connecting_bharat: "பாரதத்தின் பண்ணைகளை இணைக்கிறது",
     product_added: "தயாரிப்பு வெற்றிகரமாக சேர்க்கப்பட்டது!",
     all_rights_reserved: "அனைத்து உரிமைகளும் பாதுகாக்கப்பட்டவை. கேட்நெட் விவசாய தீர்வுகள்.",
+    details_demographics_msg: "பொருந்தக்கூடிய பயிர் விழிப்பூட்டல்களைப் பெற அடிப்படை விவரங்களை அறிவிக்கவும்.",
+    age_min_error: "KhetNet இல் வர்த்தகம் செய்ய உங்களுக்கு 18 வயது அல்லது அதற்கு மேல் இருக்க வேண்டும்.",
+    age_max_error: "வயது 90 வருடங்களுக்கு மேல் இருக்கக்கூடாது.",
+    mobile_error: "தயவுசெய்து செல்லுபடியாகும் 10 இலக்க இந்திய மொபைல் எண்ணை உள்ளிடவும்.",
+    lock_profile_details: "சுயவிவர விவரங்களைப் பூட்டு",
   },
   te: {
     select_language: "భాషను ఎంచుకోండి",
@@ -458,7 +473,12 @@ export const translations = {
     email_in_use: "ఈమెయిల్ ఇప్పటికే వాడుకలో ఉంది",
     connecting_bharat: "భారతీయ పొలాలను అనుసంధానిస్తోంది",
     product_added: "ఉత్పత్తి విజయవంతంగా జోడించబడింది!",
-    all_rights_reserved: "అన్ని హక్కులు ప్రత్యేకించబడ్డాయి. ఖేట్‌నెట్ అగ్రికਲచర్ సొల్యూషన్స్.",
+    all_rights_reserved: "అన్ని హక్కులు ప్రత్యేకించబడ్డాయి. ఖేట్‌నెట్ అగ్రికల్చర్ సొల్యూషన్స్.",
+    details_demographics_msg: "సరిపోలే పంట హెచ్చరికలను స్వీకరించడానికి దయచేసి ప్రాథమిక సమాచారాన్ని నమోదు చేయండి.",
+    age_min_error: "KhetNet లో వ్యాపారం చేయడానికి మీకు కనీసం 18 సంవత్సరాలు నిండి ఉండాలి.",
+    age_max_error: "వయస్సు 90 సంవత్సరాలు మించకూడదు.",
+    mobile_error: "దయచేసి చెల్లుబాటు అయ్యే 10 అంకెల మొబైల్ సంఖ్యను నమోదు చేయండి.",
+    lock_profile_details: "ప్రొఫైల్ వివరాలను లాక్ చేయండి",
   },
   pa: {
     select_language: "ਭਾਸ਼ਾ ਚੁਣੋ",
@@ -574,6 +594,11 @@ export const translations = {
     connecting_bharat: "ਭਾਰਤ ਦੇ ਖੇਤਾਂ ਨੂੰ ਜੋੜ ਰਿਹਾ ਹੈ",
     product_added: "ਉਤਪਾਦ ਸਫਲਤਾਪੂਰਵਕ ਜੋੜਿਆ ਗਿਆ!",
     all_rights_reserved: "ਸਾਰੇ ਹੱਕ ਰਾਖਵੇਂ ਹਨ। ਖੇਤਨੈੱਟ ਐਗਰੀਕਲਚਰ ਸੋਲਿਊਸ਼ਨਜ਼।",
+    details_demographics_msg: "ਢੁਕਵੇਂ ਫਸਲ ਅਲਰਟ ਪ੍ਰਾਪਤ ਕਰਨ ਲਈ ਕਿਰਪਾ ਕਰਕੇ ਮੁਢਲੀ ਜਾਣਕਾਰੀ ਦਰਜ ਕਰੋ।",
+    age_min_error: "ਖੇਤਨੈੱਟ 'ਤੇ ਵਪਾਰ ਕਰਨ ਲਈ ਤੁਹਾਡੀ ਉਮਰ 18 ਸਾਲ ਜਾਂ ਇਸ ਤੋਂ ਵੱਧ ਹੋਣੀ ਚਾਹੀਦੀ ਹੈ।",
+    age_max_error: "ਉਮਰ 90 ਸਾਲ ਤੋਂ ਵੱਧ ਨਹੀਂ ਹੋ ਸਕਦੀ।",
+    mobile_error: "ਕਿਰਪਾ ਕਰਕੇ ਇੱਕ ਵੈਧ 10-ਅੰਕਾਂ ਦਾ ਭਾਰਤੀ ਮੋਬਾਈਲ ਨੰਬਰ ਦਰਜ ਕਰੋ।",
+    lock_profile_details: "ਪ੍ਰੋਫਾਈਲ ਵੇਰਵੇ ਲਾਕ ਕਰੋ",
   },
   kn: {
     select_language: "ಭಾಷೆಯನ್ನು ಆಯ್ಕೆ ಮಾಡಿ",
@@ -689,6 +714,11 @@ export const translations = {
     connecting_bharat: "ಭಾರತದ ಹೊಲಗಳನ್ನು ಸಂಪರ್ಕಿಸಲಾಗುತ್ತಿದೆ",
     product_added: "ಉತ್ಪನ್ನವನ್ನು ಯಶಸ್ವಿಯಾಗಿ ಸೇರಿಸಲಾಗಿದೆ!",
     all_rights_reserved: "ಎಲ್ಲಾ ಹಕ್ಕುಗಳನ್ನು ಕಾಯ್ದಿರಿಸಲಾಗಿದೆ. ಖೇಟ್‌ನೆಟ್ ಕೃಷಿ ಪರಿಹಾರಗಳು.",
+    details_demographics_msg: "ಸೂಕ್ತ ಬೆಳೆ ಎಚ್ಚರಿಕೆಗಳನ್ನು ಸ್ವೀಕರಿಸಲು ದಯವಿಟ್ಟು ಮೂಲಭೂತ ವಿವರಗಳನ್ನು ನಮೂದಿಸಿ.",
+    age_min_error: "ಖೇತ್‌ನೆಟ್‌ನಲ್ಲಿ ವ್ಯಾಪಾರ ಮಾಡಲು ನಿಮಗೆ ಕನಿಷ್ಠ 18 ವರ್ಷ ವಯಸ್ಸಾಗಿರಬೇಕು.",
+    age_max_error: "ವಯಸ್ಸು 90 ವರ್ಷ ಮೀರಬಾರದು.",
+    mobile_error: "ದಯವಿಟ್ಟು ಮಾನ್ಯವಾದ 10-ಅಂಕಿಯ ಭಾರತೀಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ.",
+    lock_profile_details: "ಪ್ರೊಫೈಲ್ ವಿವರಗಳನ್ನು ಲಾಕ್ ಮಾಡಿ",
   },
   ml: {
     select_language: "ഭാഷ തിരഞ്ഞെടുക്കുക",
@@ -804,5 +834,27 @@ export const translations = {
     connecting_bharat: "ഭാരതത്തിന്റെ കൃഷിയിടങ്ങളെ ബന്ധിപ്പിക്കുന്നു",
     product_added: "ഉൽപ്പന്നം വിജയകരമായി ചേർത്തു!",
     all_rights_reserved: "എല്ലാ അവകാശങ്ങളും നിക്ഷിപ്തം. ഖേറ്റ്‌നെറ്റ് അഗ്രികൾച്ചർ സൊല്യൂഷൻസ്.",
+    details_demographics_msg: "അനുയോജ്യമായ വിള അലേർട്ടുകൾ ലഭിക്കുന്നതിന് ദയവായി അടിസ്ഥാന വിവരങ്ങൾ നൽകുക.",
+    age_min_error: "ഖേറ്റ്‌നെറ്റിൽ വ്യാപാരം നടത്തുന്നതിന് നിങ്ങൾക്ക് 18 വയസോ അതിൽ കൂടുതലോ പ്രായമുണ്ടായിരിക്കണം.",
+    age_max_error: "പ്രായം 90 വയസ്സിൽ കൂടരുത്.",
+    mobile_error: "ദയവായി സാധുവായ 10 അക്ക ഇന്ത്യൻ മൊബൈൽ നമ്പർ നൽകുക.",
+    lock_profile_details: "പ്രൊഫൈൽ വിവരങ്ങൾ ലോക്ക് ചെയ്യുക",
   },
 };
+
+// Elegant fallback translation engine for any low-resource Indian languages
+export const translations = new Proxy(rawTranslations as any, {
+  get(target, prop: string) {
+    if (prop in target) {
+      return target[prop];
+    }
+    // Deep fallback matching the Indian region preference: Indian languages to 'hi', others or english to 'en'
+    const isIndianLanguage = [
+      'ur', 'mr', 'gu', 'bn', 'as', 'or', 'ks', 'doi', 'mai', 'ne', 'sat', 'kok', 'mni', 'brx', 'sa', 'sd'
+    ].includes(prop);
+    
+    const fallbackLang = isIndianLanguage ? 'hi' : 'en';
+    return target[prop] || target[fallbackLang] || target['en'];
+  }
+});
+

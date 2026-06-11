@@ -28,12 +28,15 @@ service cloud.firestore {
                (data.mobile == null || (data.mobile is string && data.mobile.size() <= 20));
       }
 
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
+      allow get: if isSignedIn(); // allow profile viewing for and by other users for trading/matching transparency
+      allow list: if isSignedIn(); // needed for matching algorithms and dashboards
       allow create: if isOwner(userId) && isValidUser(incoming());
       allow update: if (isOwner(userId) || isAdmin()) && (
-        (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'age', 'mobile', 'email', 'language', 'role', 'state', 'region']) && 
-         isValidUser(incoming())) ||
+        (incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'age', 'mobile', 'email', 'language', 'role', 'state', 'region', 
+          'isSubscribed', 'subscriptionTier', 'viewsRemaining', 'isVerified', 
+          'aadhaarDigits', 'otpVerified', 'trustScore', 'tradeHistoryCount', 'buyerRating'
+        ]) && isValidUser(incoming())) ||
         isAdmin()
       );
       allow delete: if isAdmin();
@@ -55,7 +58,8 @@ service cloud.firestore {
         (isOwner(existing().farmerId) && isValidProduct(incoming())) ||
         // Wholesaler Purchase
         (incoming().diff(existing()).affectedKeys().hasOnly(['maxQuantity']) && incoming().maxQuantity >= 0) ||
-        isAdmin()
+        // Escrow/Status
+        (incoming().diff(existing()).affectedKeys().hasAll(['maxQuantity']) || isAdmin())
       );
       allow delete: if isAdmin() || isOwner(existing().farmerId);
     }
@@ -80,10 +84,9 @@ service cloud.firestore {
       
       allow create: if isSignedIn() && isValidOrder(incoming()) && isOwner(incoming().wholesalerId);
       allow update: if isSignedIn() && (
-        // Status Transition
-        ( (isOwner(existing().farmerId) && ( (existing().status == 'pending' && incoming().status in ['approved', 'declined']) )) ||
-          (isOwner(existing().wholesalerId) && (existing().status == 'approved' && incoming().status == 'received'))
-        ) && incoming().diff(existing()).affectedKeys().hasOnly(['status']) 
+        // Status Transition Engine for Escrow (supports pending, approved, declined, escrow_deposited, delivered, escrow_released)
+        (isOwner(existing().farmerId) || isOwner(existing().wholesalerId)) && 
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'escrowHeldAt', 'escrowReleasedAt'])
       ) || isAdmin();
       allow delete: if isAdmin();
     }
@@ -92,6 +95,18 @@ service cloud.firestore {
     match /login_sessions/{sessionId} {
       allow read: if isAdmin();
       allow create: if isSignedIn() && isOwner(incoming().userId);
+    }
+
+    // --- LOGISTICS BOOKINGS ---
+    match /logistics_bookings/{bookingId} {
+      allow read, create, update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+
+    // --- CROP INSURANCES ---
+    match /crop_insurances/{insuranceId} {
+      allow read, create, update: if isSignedIn();
+      allow delete: if isAdmin();
     }
 
     // --- CHATS ---

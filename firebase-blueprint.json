@@ -2,7 +2,7 @@
   "entities": {
     "User": {
       "title": "User Profile",
-      "description": "User account information including roles and preferences.",
+      "description": "User account information including verification status, trust score, role, and trading preferences.",
       "type": "object",
       "properties": {
         "name": { "type": "string" },
@@ -12,13 +12,21 @@
         "mobile": { "type": "string" },
         "state": { "type": "string" },
         "region": { "type": "string" },
-        "language": { "type": "string" }
+        "language": { "type": "string" },
+        "isVerified": { "type": "boolean" },
+        "aadhaarDigits": { "type": "string" },
+        "otpVerified": { "type": "boolean" },
+        "trustScore": { "type": "number" },
+        "tradeHistoryCount": { "type": "number" },
+        "buyerRating": { "type": "number" },
+        "isSubscribed": { "type": "boolean" },
+        "subscriptionTier": { "type": "string", "enum": ["gold", "platinum"] }
       },
       "required": ["name", "email"]
     },
     "Product": {
       "title": "Agricultural Product",
-      "description": "Items listed by farmers for sale.",
+      "description": "Harvest listing by farmers, upgraded with moisture percentage, quality grade, and AI recommendation metrics.",
       "type": "object",
       "properties": {
         "name": { "type": "string" },
@@ -29,55 +37,95 @@
         "farmerMobile": { "type": "string" },
         "state": { "type": "string" },
         "region": { "type": "string" },
-        "createdAt": { "type": "number" }
+        "createdAt": { "type": "number" },
+        "grade": { "type": "string" },
+        "harvestDate": { "type": "string" },
+        "moisturePercent": { "type": "number" },
+        "aiRecommendedPrice": { "type": "number" },
+        "priceTrend7Day": { "type": "number" },
+        "priceTrend15Day": { "type": "number" },
+        "priceTrendRecommendation": { "type": "string" },
+        "photo": { "type": "string" }
       }
     },
     "Order": {
-      "title": "Marketplace Order",
-      "description": "Transaction records between wholesalers and farmers.",
+      "title": "Escrow Order Contract",
+      "description": "Historical or active trade records supporting KhetNet's secure Escrow Holding architecture.",
       "type": "object",
       "properties": {
         "productId": { "type": "string" },
         "productName": { "type": "string" },
         "farmerId": { "type": "string" },
+        "farmerName": { "type": "string" },
         "wholesalerId": { "type": "string" },
+        "wholesalerName": { "type": "string" },
         "quantity": { "type": "number" },
         "totalCost": { "type": "number" },
-        "status": { "type": "string", "enum": ["pending", "approved", "declined", "received"] },
-        "timestamp": { "type": "number" },
-        "expiryTime": { "type": "number" }
+        "status": { "type": "string", "enum": ["pending", "escrow_deposited", "delivered", "escrow_released", "declined"] },
+        "createdAt": { "type": "number" },
+        "escrowHeldAt": { "type": "number" },
+        "escrowReleasedAt": { "type": "number" }
       }
     },
-    "LoginSession": {
-      "title": "Login Session Log",
-      "description": "Log of user login events for administrative tracking.",
+    "LogisticsBooking": {
+      "title": "Transport Freight Booking",
+      "description": "Carriage of country cargo booked through the transport marketplace.",
       "type": "object",
       "properties": {
         "userId": { "type": "string" },
         "userName": { "type": "string" },
-        "userEmail": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" },
-        "device": { "type": "string" },
-        "userAgent": { "type": "string" }
+        "userMobile": { "type": "string" },
+        "pickup": { "type": "string" },
+        "dropoff": { "type": "string" },
+        "vehicleName": { "type": "string" },
+        "vehicleCapacity": { "type": "string" },
+        "distanceKm": { "type": "number" },
+        "priceRupees": { "type": "number" },
+        "status": { "type": "string" },
+        "driverName": { "type": "string" },
+        "driverPhone": { "type": "string" },
+        "consignmentNo": { "type": "string" },
+        "createdAt": { "type": "number" }
+      }
+    },
+    "CropInsurance": {
+      "title": "Crop Insurance Enrollment",
+      "description": "Insurance policy bought by farmers from verified corporate underwriting partners.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "policyType": { "type": "string" },
+        "providerName": { "type": "string" },
+        "premiumRupees": { "type": "number" },
+        "sumAssuredRupees": { "type": "number" },
+        "cropName": { "type": "string" },
+        "acreage": { "type": "number" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "number" }
       }
     }
   },
   "firestore": {
     "users": {
       "schema": "User",
-      "description": "Root collection for user profiles."
+      "description": "User profiles with state, region, verification and trust score metadata."
     },
     "products": {
       "schema": "Product",
-      "description": "Global marketplace for agricultural goods."
+      "description": "Crop lists with grade, harvest date, moisture metrics, and price prediction charts."
     },
     "orders": {
       "schema": "Order",
-      "description": "Active and historical trade records."
+      "description": "Bulk crop escrow trade orders."
     },
-    "login_sessions": {
-      "schema": "LoginSession",
-      "description": "Audit trail for user access."
+    "logistics_bookings": {
+      "schema": "LogisticsBooking",
+      "description": "Active road freight matching consignment registers."
+    },
+    "crop_insurances": {
+      "schema": "CropInsurance",
+      "description": "Affiliated agricultural insurances registered."
     }
   }
 }

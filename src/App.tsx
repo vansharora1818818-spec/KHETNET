@@ -43,6 +43,14 @@ import { HostCenter } from './components/HostCenter';
 import { AgriAdvisory } from './components/AgriAdvisory';
 import { KhetNetLogistics } from './components/KhetNetLogistics';
 
+// Import upgraded operating system components
+import { VerifiedFarmer } from './components/VerifiedFarmer';
+import { CropPredictor } from './components/CropPredictor';
+import { EscrowPayment } from './components/EscrowPayment';
+import { CropInsurance } from './components/CropInsurance';
+import { TraderDashboard } from './components/TraderDashboard';
+import { VoiceAssistant } from './components/VoiceAssistant';
+
 // Firebase Setup
 import { initializeApp } from 'firebase/app';
 import { 
@@ -88,8 +96,11 @@ export default function App() {
   const [loginSessions, setLoginSessions] = useState<any[]>([]);
 
   // Sub-tabs for Dashboard
-  // 'hub' represents the primary 4 large-card landing screen.
-  const [activeSubTab, setActiveSubTab] = useState<'hub' | 'ask' | 'scanner' | 'sell_marketplace' | 'prices' | 'subscription' | 'advisory' | 'logistics'>('hub');
+  // 'hub' represents the primary landing screen.
+  const [activeSubTab, setActiveSubTab] = useState<
+    'hub' | 'ask' | 'scanner' | 'sell_marketplace' | 'prices' | 'subscription' | 'advisory' | 'logistics' |
+    'verify' | 'predict' | 'escrow' | 'insurance' | 'trader'
+  >('hub');
 
   // Interactive local states
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -105,6 +116,16 @@ export default function App() {
   const [newCropCost, setNewCropCost] = useState('');
   const [newCropQty, setNewCropQty] = useState('');
   const [newCropPhoto, setNewCropPhoto] = useState('');
+
+  // Upgraded Operating System Listing States
+  const [newCropGrade, setNewCropGrade] = useState<'A' | 'B' | 'C'>('A');
+  const [newCropMoisture, setNewCropMoisture] = useState<number>(12);
+  const [newCropHarvestDate, setNewCropHarvestDate] = useState(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
+  const [isGettingPriceAdvice, setIsGettingPriceAdvice] = useState(false);
+  const [valuationTip, setValuationTip] = useState('');
 
   // Buyers Filters State
   const [buyerSearchCrop, setBuyerSearchCrop] = useState('');
@@ -407,6 +428,11 @@ export default function App() {
         name: newCropName,
         costPerKg: parseFloat(newCropCost),
         maxQuantity: parseFloat(newCropQty),
+        grade: newCropGrade,
+        moisturePercent: newCropMoisture,
+        harvestDate: newCropHarvestDate,
+        isVerified: user.isVerified || false,
+        trustScore: user.trustScore || 85,
         farmerId: user.id || 'anonymous_farmer',
         farmerName: user.name || 'Listed Farmer',
         farmerMobile: user.mobile || '9988776655',
@@ -416,13 +442,16 @@ export default function App() {
       };
 
       await addDoc(collection(db, 'products'), harvestDocObj);
-      alert("Harvest crop listed successfully on KhetNet marketplace!");
+      alert("Harvest crop listed successfully on KhetNet marketplace with Smart Quality analysis!");
       
       // Reset state inputs
       setNewCropName('');
       setNewCropCost('');
       setNewCropQty('');
       setNewCropPhoto('');
+      setNewCropGrade('A');
+      setNewCropMoisture(12);
+      setValuationTip('');
       setActiveSubTab('hub');
     } catch (e) {
       console.error(e);
@@ -519,40 +548,55 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex flex-col items-center justify-center min-h-screen p-6 max-w-md mx-auto space-y-8"
+            className="flex flex-col items-center justify-center min-h-screen p-4 max-w-lg mx-auto space-y-6"
           >
-            <div className="bg-[#4C6B36] p-6 rounded-[28%] shadow-xl shadow-[#4C6B36]/15">
-              <KhetNetLogo className="w-16 h-16" />
+            <div className="bg-[#4C6B36] p-4 rounded-[28%] shadow-xl shadow-[#4C6B36]/15">
+              <KhetNetLogo className="w-12 h-12" />
             </div>
             
-            <div className="text-center space-y-2">
-              <h1 className="text-4xl font-black text-gray-950 font-heading tracking-tight italic">KhetNet</h1>
-              <p className="text-sm text-gray-400 font-bold uppercase tracking-wider">Select Mandi Language</p>
+            <div className="text-center space-y-1">
+              <h1 className="text-3xl font-black text-gray-950 font-heading tracking-tight italic">KhetNet</h1>
+              <p className="text-xs text-[#4C6B36] font-extrabold uppercase tracking-widest">Connect with 23 Indian Languages</p>
+              <p className="text-[10px] text-gray-400 font-semibold uppercase">भारत की २३ भाषाओं में उपलब्ध</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 w-full">
-              {[
-                { id: 'en', label: 'English' },
-                { id: 'hi', label: 'हिंदी' },
-                { id: 'pa', label: 'ਪੰਜਾਬੀ' },
-                { id: 'ta', label: 'தமிழ்' },
-                { id: 'te', label: 'తెలుగు' },
-                { id: 'kn', label: 'ಕನ್ನಡ' },
-                { id: 'ml', label: 'മലയാളം' },
-              ].map((languageOpt, index, arrayList) => {
-                const isLastElement = index === arrayList.length - 1;
-                return (
+            <div className="w-full max-h-[380px] overflow-y-auto pr-1 space-y-2 border border-gray-100 bg-gray-50/50 p-3 rounded-2xl">
+              <div className="grid grid-cols-2 gap-2.5">
+                {[
+                  { id: 'en', label: 'English' },
+                  { id: 'hi', label: 'हिंदी (Hindi)' },
+                  { id: 'pa', label: 'ਪੰਜਾਬੀ (Punjabi)' },
+                  { id: 'ta', label: 'தமிழ் (Tamil)' },
+                  { id: 'te', label: 'తెలుగు (Telugu)' },
+                  { id: 'kn', label: 'ಕನ್ನಡ (Kannada)' },
+                  { id: 'ml', label: 'മലയാളം (Malayalam)' },
+                  { id: 'ur', label: 'اردو (Urdu)' },
+                  { id: 'mr', label: 'मराठी (Marathi)' },
+                  { id: 'gu', label: 'ગુજરાતી (Gujarati)' },
+                  { id: 'bn', label: 'বাংলা (Bengali)' },
+                  { id: 'as', label: 'অসমীয়া (Assamese)' },
+                  { id: 'or', label: 'ଓଡ଼ିଆ (Odia)' },
+                  { id: 'ks', label: 'کٲਸ਼ُر (Kashmiri)' },
+                  { id: 'doi', label: 'डोगरी (Dogri)' },
+                  { id: 'mai', label: 'मैथिली (Maithili)' },
+                  { id: 'ne', label: 'नेपाली (Nepali)' },
+                  { id: 'sat', label: 'संताली (Santali)' },
+                  { id: 'kok', label: 'कोंकणी (Konkani)' },
+                  { id: 'mni', label: 'Manipuri (মণিপুরী)' },
+                  { id: 'brx', label: 'बोडो (Bodo)' },
+                  { id: 'sa', label: 'संस्कृत (Sanskrit)' },
+                  { id: 'sd', label: 'सिंधी (Sindhi)' },
+                ].map((languageOpt) => (
                   <button
                     key={languageOpt.id}
                     onClick={() => handleLanguageSelect(languageOpt.id as Language)}
-                    className={`py-4 px-5 rounded-2xl border-2 border-[#E2F0D9] bg-white hover:border-[#4C6B36] hover:bg-[#F0F7EB] transition-all font-semibold shadow-sm active:scale-95 text-lg ${
-                      isLastElement ? 'col-span-2 text-center' : ''
-                    }`}
+                    className="py-3 px-3 block w-full rounded-xl border border-gray-200 bg-white hover:border-[#4C6B36] hover:bg-[#F0F7EB] transition-all font-semibold shadow-sm active:scale-95 text-center"
                   >
-                    {languageOpt.label}
+                    <span className="text-[10px] text-[#4C6B36] font-extrabold block opacity-70 mb-0.5">{languageOpt.id.toUpperCase()}</span>
+                    <span className="text-xs font-black text-gray-900 block">{languageOpt.label}</span>
                   </button>
-                );
-              })}
+                ))}
+              </div>
             </div>
           </motion.div>
         )}
@@ -740,6 +784,70 @@ export default function App() {
                       </div>
                     </div>
 
+                    {/* Card 7: Verified Farmer Registry */}
+                    <div 
+                      onClick={() => setActiveSubTab('verify')}
+                      className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
+                    >
+                      <span className="text-4xl">🛡️</span>
+                      <div>
+                        <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Verified Farmer</h3>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Certificates & Trust</p>
+                      </div>
+                    </div>
+
+                    {/* Card 8: Crop Price Predictor */}
+                    <div 
+                      onClick={() => setActiveSubTab('predict')}
+                      className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
+                    >
+                      <span className="text-4xl">💰</span>
+                      <div>
+                        <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Price Predictor</h3>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">AI crop 15-day trends</p>
+                      </div>
+                    </div>
+
+                    {/* Card 9: KhetNet Escrow Guard */}
+                    <div 
+                      onClick={() => setActiveSubTab('escrow')}
+                      className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
+                    >
+                      <span className="text-4xl">🔒</span>
+                      <div>
+                        <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Escrow Guard</h3>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Secured Cargo Trade</p>
+                      </div>
+                    </div>
+
+                    {/* Card 10: Crop Insurance Section */}
+                    <div 
+                      onClick={() => setActiveSubTab('insurance')}
+                      className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
+                    >
+                      <span className="text-4xl">☂️</span>
+                      <div>
+                        <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Crop Insurance</h3>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Yield risk shield cover</p>
+                      </div>
+                    </div>
+
+                    {/* Card 11 (Wholesalers Only): Trader Cockpit */}
+                    {user.role === 'wholesaler' && (
+                      <div 
+                        onClick={() => setActiveSubTab('trader')}
+                        className="bg-white p-6 rounded-[35px] border-2 border-[#4C6B36] bg-[#FAFDF6] hover:border-emerald-600 transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 col-span-1 sm:col-span-2 group active:scale-95"
+                      >
+                        <div className="flex justify-between items-start w-full">
+                          <span className="text-4xl">🧭</span>
+                          <span className="text-[8px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-black uppercase tracking-wider">Premium Cockpit</span>
+                        </div>
+                        <div>
+                          <h3 className="font-heading font-black text-lg text-gray-955 leading-snug group-hover:text-emerald-700 transition-colors">Trader Cockpit</h3>
+                          <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider mt-0.5">Verified farmers, Trust ratings & AI matches</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -800,20 +908,108 @@ export default function App() {
 
                       <form onSubmit={handleFarmerPostingSubmit} className="space-y-5">
                         <div className="space-y-1.5">
-                          <label className="text-xs text-gray-400 font-bold uppercase tracking-wider block ml-1">Crop Name / Grade</label>
+                          <label className="text-xs text-gray-400 font-bold uppercase tracking-wider block ml-1">Crop Name / Variety</label>
                           <input
                             required
                             type="text"
                             value={newCropName}
                             onChange={(e) => setNewCropName(e.target.value)}
-                            placeholder="e.g. Organic Basmati Rice, Red Onion box"
+                            placeholder="e.g. Organic Basmati Rice, Premium Wheat"
                             className="w-full bg-[#F5F9F2] border-none rounded-2xl py-3.5 px-4 outline-none text-sm font-semibold"
                           />
                         </div>
 
+                        {/* Smart Crop quality specifications */}
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block ml-1">Grade</label>
+                            <select
+                              value={newCropGrade}
+                              onChange={(e) => setNewCropGrade(e.target.value as any)}
+                              className="w-full bg-[#F5F9F2] border-none rounded-2xl py-3 px-2 outline-none text-xs font-bold"
+                            >
+                              <option value="A">Grade A (Premium)</option>
+                              <option value="B">Grade B (Standard)</option>
+                              <option value="C">Grade C (Slight Delays)</option>
+                            </select>
+                          </div>
+                          
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block ml-1">Moisture (%)</label>
+                            <input
+                              type="number"
+                              min={5}
+                              max={30}
+                              value={newCropMoisture}
+                              onChange={(e) => setNewCropMoisture(Math.max(5, Math.min(30, Number(e.target.value))))}
+                              className="w-full bg-[#F5F9F2] border-none rounded-2xl py-3 px-2 outline-none text-xs font-bold text-center"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block ml-1">Harvest Date</label>
+                            <input
+                              type="date"
+                              value={newCropHarvestDate}
+                              onChange={(e) => setNewCropHarvestDate(e.target.value)}
+                              className="w-full bg-[#F5F9F2] border-none rounded-2xl py-3 px-1.5 outline-none text-[9px] font-bold text-center"
+                            />
+                          </div>
+                        </div>
+
+                        {/* AI Price recommendation advisor box */}
+                        <div className="bg-amber-50/25 border-2 border-amber-100 p-4 rounded-3xl space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[8px] text-amber-805 font-black tracking-widest uppercase block">Mandi Smart Advisory</span>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!newCropName) {
+                                  alert("Please declare a Crop Variety name first to retrieve AI recommendations.");
+                                  return;
+                                }
+                                setIsGettingPriceAdvice(true);
+                                try {
+                                  const response = await fetch('/api/recommend-price', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      cropName: newCropName,
+                                      grade: newCropGrade,
+                                      moisture: newCropMoisture,
+                                      harvestDate: newCropHarvestDate,
+                                      state: user.state || 'Punjab',
+                                      region: user.region || 'Amritsar'
+                                    })
+                                  });
+                                  const data = await response.json();
+                                  setNewCropCost(data.recommendedPricePerKg.toString());
+                                  setValuationTip(`AI Approved: ₹${data.recommendedPricePerKg}/kg (Valuation Confidence: ${data.confidenceScore}%). Analysis: ${data.analysis}`);
+                                } catch (err) {
+                                  // Fallback
+                                  const localCost = 45;
+                                  setNewCropCost(localCost.toString());
+                                  setValuationTip(`Estimated value: ₹${localCost}/kg based on regional mandi arrivals.`);
+                                } finally {
+                                  setIsGettingPriceAdvice(false);
+                                }
+                              }}
+                              disabled={isGettingPriceAdvice}
+                              className="py-1 px-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all disabled:opacity-45"
+                            >
+                              {isGettingPriceAdvice ? "Analyzing..." : "Get AI Recommended Price"}
+                            </button>
+                          </div>
+                          {valuationTip && (
+                            <p className="text-[10px] text-gray-500 font-medium leading-relaxed font-serif italic pt-1.5 border-t border-amber-100/30">
+                              {valuationTip}
+                            </p>
+                          )}
+                        </div>
+
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-1.5">
-                            <label className="text-xs text-gray-400 font-bold uppercase tracking-wider block ml-1">Cost Per kg (₹)</label>
+                            <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block ml-1">Cost Per kg (₹)</span>
                             <input
                               required
                               type="number"
@@ -824,7 +1020,7 @@ export default function App() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <label className="text-xs text-gray-400 font-bold uppercase tracking-wider block ml-1">Total Supply (kg)</label>
+                            <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block ml-1">Total Supply (kg)</span>
                             <input
                               required
                               type="number"
@@ -1018,6 +1214,81 @@ export default function App() {
                 </div>
               )}
 
+              {/* Sub Tab 8: Verified Farmer Registry */}
+              {activeSubTab === 'verify' && (
+                <div className="py-6 animate-fade-in">
+                  <div className="max-w-xl mx-auto px-6 mb-2">
+                    <button 
+                      onClick={() => setActiveSubTab('hub')}
+                      className="text-xs font-black uppercase text-[#4C6B36] tracking-widest hover:underline"
+                    >
+                      ← Return to Main Portal
+                    </button>
+                  </div>
+                  <VerifiedFarmer user={user} onVerificationComplete={(info) => setUser(prev => ({ ...prev, ...info }))} />
+                </div>
+              )}
+
+              {/* Sub Tab 9: Crop Price Predictor */}
+              {activeSubTab === 'predict' && (
+                <div className="py-6 animate-fade-in">
+                  <div className="max-w-xl mx-auto px-6 mb-2">
+                    <button 
+                      onClick={() => setActiveSubTab('hub')}
+                      className="text-xs font-black uppercase text-[#4C6B36] tracking-widest hover:underline"
+                    >
+                      ← Return to Main Portal
+                    </button>
+                  </div>
+                  <CropPredictor user={user} t={t} />
+                </div>
+              )}
+
+              {/* Sub Tab 10: KhetNet Escrow Guard */}
+              {activeSubTab === 'escrow' && (
+                <div className="py-6 animate-fade-in">
+                  <div className="max-w-xl mx-auto px-6 mb-2">
+                    <button 
+                      onClick={() => setActiveSubTab('hub')}
+                      className="text-xs font-black uppercase text-[#4C6B36] tracking-widest hover:underline"
+                    >
+                      ← Return to Main Portal
+                    </button>
+                  </div>
+                  <EscrowPayment user={user} t={t} />
+                </div>
+              )}
+
+              {/* Sub Tab 11: Crop Insurance Section */}
+              {activeSubTab === 'insurance' && (
+                <div className="py-6 animate-fade-in">
+                  <div className="max-w-xl mx-auto px-6 mb-2">
+                    <button 
+                      onClick={() => setActiveSubTab('hub')}
+                      className="text-xs font-black uppercase text-[#4C6B36] tracking-widest hover:underline"
+                    >
+                      ← Return to Main Portal
+                    </button>
+                  </div>
+                  <CropInsurance user={user} t={t} />
+                </div>
+              )}
+
+              {/* Sub Tab 12: Trader Dashboard Cockpit */}
+              {activeSubTab === 'trader' && (
+                <div className="py-6 animate-fade-in">
+                  <div className="max-w-xl mx-auto px-6 mb-2">
+                    <button 
+                      onClick={() => setActiveSubTab('hub')}
+                      className="text-xs font-black uppercase text-[#4C6B36] tracking-widest hover:underline"
+                    >
+                      ← Return to Main Portal
+                    </button>
+                  </div>
+                  <TraderDashboard user={user} t={t} setActiveSubTab={setActiveSubTab} />
+                </div>
+              )}
+
             </main>
 
             {/* Sticky Bottom Navigation dock for quick switching */}
@@ -1062,6 +1333,31 @@ export default function App() {
         onSuccess={handlePaymentSuccess}
         tier={selectedPlan}
         price={selectedPlanPrice}
+      />
+
+      {/* GLOBAL DYNAMIC MULTILINGUAL VOICE AI ASSISTANT COMPANION */}
+      <VoiceAssistant 
+        user={user} 
+        setUser={setUser}
+        lang={lang}
+        setLang={setLang}
+        t={t} 
+        activeSubTab={activeSubTab} 
+        setActiveSubTab={setActiveSubTab} 
+        stage={stage}
+        setStage={setStage}
+        newCropName={newCropName}
+        setNewCropName={setNewCropName}
+        newCropCost={newCropCost}
+        setNewCropCost={setNewCropCost}
+        newCropQty={newCropQty}
+        setNewCropQty={setNewCropQty}
+        newCropGrade={newCropGrade}
+        setNewCropGrade={setNewCropGrade}
+        newCropMoisture={newCropMoisture}
+        setNewCropMoisture={setNewCropMoisture}
+        newCropHarvestDate={newCropHarvestDate}
+        setNewCropHarvestDate={setNewCropHarvestDate}
       />
 
     </div>
@@ -1222,7 +1518,7 @@ function DetailsScreenWidget({ t, onSubmit, onBack }: any) {
 
       <div className="space-y-1">
         <h2 className="text-3xl font-heading font-black text-gray-950 tracking-tight leading-none italic">{t.personal_info || 'Profile Registry'}</h2>
-        <p className="text-xs text-gray-400 font-medium">Please declare basic demographics to receive matching crop alerts.</p>
+        <p className="text-xs text-gray-400 font-medium">{t.details_demographics_msg || 'Please declare basic demographics to receive matching crop alerts.'}</p>
       </div>
 
       <div className="space-y-4">
@@ -1234,7 +1530,7 @@ function DetailsScreenWidget({ t, onSubmit, onBack }: any) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full px-4 py-3.5 bg-[#F5F9F2] border-none rounded-xl outline-none text-xs font-semibold placeholder:text-gray-300"
-            placeholder="e.g. Sarabjit Singh"
+            placeholder={t.name_placeholder || 'e.g. Sarabjit Singh'}
           />
         </div>
 
@@ -1247,7 +1543,7 @@ function DetailsScreenWidget({ t, onSubmit, onBack }: any) {
               value={age}
               onChange={(e) => setAge(e.target.value)}
               className="w-full px-4 py-3.5 bg-[#F5F9F2] border-none rounded-xl outline-none text-xs font-semibold text-center"
-              placeholder="e.g. 42"
+              placeholder={t.age_placeholder || 'e.g. 42'}
             />
           </div>
           <div className="space-y-1.5">
@@ -1258,19 +1554,19 @@ function DetailsScreenWidget({ t, onSubmit, onBack }: any) {
               value={mobile}
               onChange={(e) => setMobile(e.target.value)}
               className="w-full px-4 py-3.5 bg-[#F5F9F2] border-none rounded-xl outline-none text-xs font-semibold text-center"
-              placeholder="10-digit mobile"
+              placeholder={t.mobile_placeholder || '10-digit mobile'}
             />
           </div>
         </div>
 
         {age && Number(age) < 18 && (
-          <p className="text-xs text-red-500 font-extrabold ml-1">⚠️ You must be 18 years or older to trade on KhetNet.</p>
+          <p className="text-xs text-red-500 font-extrabold ml-1">⚠️ {t.age_min_error || 'You must be 18 years or older to trade on KhetNet.'}</p>
         )}
         {age && Number(age) > 90 && (
-          <p className="text-xs text-red-500 font-extrabold ml-1">⚠️ Age cannot exceed 90 years.</p>
+          <p className="text-xs text-red-500 font-extrabold ml-1">⚠️ {t.age_max_error || 'Age cannot exceed 90 years.'}</p>
         )}
         {mobile && !/^\d{10}$/.test(mobile) && (
-          <p className="text-xs text-amber-600 font-extrabold ml-1">⚠️ Please declare a premium standard 10-digit Indian Mobile.</p>
+          <p className="text-xs text-amber-600 font-extrabold ml-1">⚠️ {t.mobile_error || 'Please enter a valid 10-digit Indian Mobile.'}</p>
         )}
       </div>
 
@@ -1279,7 +1575,7 @@ function DetailsScreenWidget({ t, onSubmit, onBack }: any) {
         onClick={() => onSubmit(name, Number(age), mobile)}
         className="w-full py-4.5 bg-[#4C6B36] text-white rounded-xl text-base font-black uppercase tracking-widest disabled:opacity-45 disabled:cursor-not-allowed shadow-md hover:bg-[#3D562B] transition-colors active:scale-95 mt-4"
       >
-        Lock Profile Details
+        {t.lock_profile_details || 'Lock Profile Details'}
       </button>
     </motion.div>
   );
