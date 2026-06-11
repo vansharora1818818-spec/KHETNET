@@ -104,6 +104,36 @@
         "status": { "type": "string" },
         "createdAt": { "type": "number" }
       }
+    },
+    "CommunityPost": {
+      "title": "Community Social Post",
+      "description": "Social feed post shared by farmers or experts with auto-translation and media.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userRole": { "type": "string" },
+        "userLocation": { "type": "string" },
+        "text": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "likesCount": { "type": "number" },
+        "translations": { "type": "object" }
+      }
+    },
+    "KhataEntry": {
+      "title": "Khet Khata Transaction",
+      "description": "Earned income or investment expense log created by farmer users for farm-level accounting.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["income", "expense"] },
+        "category": { "type": "string" },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "date": { "type": "string" },
+        "createdAt": { "type": "number" }
+      }
     }
   },
   "firestore": {
@@ -126,6 +156,14 @@
     "crop_insurances": {
       "schema": "CropInsurance",
       "description": "Affiliated agricultural insurances registered."
+    },
+    "community_posts": {
+      "schema": "CommunityPost",
+      "description": "Farmer multi-media social postings."
+    },
+    "khata_entries": {
+      "schema": "KhataEntry",
+      "description": "Farm-level ledger accounting entries."
     }
   }
 }

@@ -50,6 +50,8 @@ import { EscrowPayment } from './components/EscrowPayment';
 import { CropInsurance } from './components/CropInsurance';
 import { TraderDashboard } from './components/TraderDashboard';
 import { VoiceAssistant } from './components/VoiceAssistant';
+import KhetKhata from './components/KhetKhata';
+import AgriCommunity from './components/AgriCommunity';
 
 // Firebase Setup
 import { initializeApp } from 'firebase/app';
@@ -94,12 +96,13 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [allLogins, setAllLogins] = useState<User[]>([]);
   const [loginSessions, setLoginSessions] = useState<any[]>([]);
+  const [systemAlerts, setSystemAlerts] = useState<any[]>([]);
 
   // Sub-tabs for Dashboard
   // 'hub' represents the primary landing screen.
   const [activeSubTab, setActiveSubTab] = useState<
     'hub' | 'ask' | 'scanner' | 'sell_marketplace' | 'prices' | 'subscription' | 'advisory' | 'logistics' |
-    'verify' | 'predict' | 'escrow' | 'insurance' | 'trader'
+    'verify' | 'predict' | 'escrow' | 'insurance' | 'trader' | 'community' | 'khata'
   >('hub');
 
   // Interactive local states
@@ -108,7 +111,7 @@ export default function App() {
 
   // Payment states
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<'gold' | 'platinum'>('gold');
+  const [selectedPlan, setSelectedPlan] = useState<any>('premium_farmer');
   const [selectedPlanPrice, setSelectedPlanPrice] = useState(999);
 
   // New Listing States for Farmers
@@ -126,6 +129,25 @@ export default function App() {
   });
   const [isGettingPriceAdvice, setIsGettingPriceAdvice] = useState(false);
   const [valuationTip, setValuationTip] = useState('');
+
+  // Live agricultural transaction feed ticker
+  const [liveActivityIndex, setLiveActivityIndex] = useState(0);
+  const liveActivities = [
+    "🌾 Farmer Gurpreet Singh (Amritsar) listed 800kg Sharbati Wheat at ₹24/kg",
+    "🛒 Gupta Traders (Delhi) deposited ₹1,200,000 escrow security for Basmati bulk cargo",
+    "📷 Computer-Vision scanner identified Yellow Leaf Rust pathogen in Ludhiana",
+    "🚛 Logistics freight truck dispatched from Gurdaspur warehouse to Azadpur Mandi",
+    "🔒 Escrow released: Farmer Harpreet Singh received ₹45,500 after wholesaler checkout verification",
+    "☂️ PMFBY Crop Insurance cover active: Wheat crop enrolled in Fatehabad",
+    "🎓 Chief Expert Dr. Neeta Sharma matched nitrogen dosing query from Bhatinda growers"
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLiveActivityIndex(idx => (idx + 1) % liveActivities.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, []);
 
   // Buyers Filters State
   const [buyerSearchCrop, setBuyerSearchCrop] = useState('');
@@ -163,8 +185,66 @@ export default function App() {
   
   // Real-time Auth restoration listener
   useEffect(() => {
+    const checkAdminSession = async () => {
+      const token = sessionStorage.getItem('adminToken');
+      if (token) {
+        try {
+          const res = await fetch('/api/admin/verify-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token })
+          });
+          const data = await res.json();
+          if (data.success) {
+            const adminProfile: User = {
+              id: 'admin_national_base',
+              name: 'Chief Platform Director',
+              email: 'admin@khetnet.com',
+              role: 'host',
+              age: 38,
+              state: 'Delhi (NCT)',
+              region: 'Command Base',
+              language: 'en'
+            };
+            setUser(adminProfile);
+            setStage('host');
+            try {
+              await signInWithEmailAndPassword(auth, 'admin@khetnet.com', 'admin161');
+            } catch (err) {
+              try {
+                await createUserWithEmailAndPassword(auth, 'admin@khetnet.com', 'admin161');
+              } catch (createErr) {
+                console.warn("Could not register admin in Firebase on session restore:", createErr);
+              }
+            }
+          } else {
+            sessionStorage.removeItem('adminToken');
+          }
+        } catch (err) {
+          console.error("Admin verification connection error:", err);
+        }
+      }
+    };
+    checkAdminSession();
+
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
+        if (fbUser.email === 'admin@khetnet.com') {
+          const adminProfile: User = {
+            id: fbUser.uid,
+            name: 'Chief Platform Director',
+            email: 'admin@khetnet.com',
+            role: 'host',
+            age: 38,
+            state: 'Delhi (NCT)',
+            region: 'Command Base',
+            language: 'en'
+          };
+          setUser(adminProfile);
+          setStage('host');
+          setIsAuthRestored(true);
+          return;
+        }
         try {
           const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
           if (userDoc.exists()) {
@@ -177,7 +257,10 @@ export default function App() {
           console.error("Error fetching user profile doc:", e);
         }
       } else {
-        setUser({});
+        // If not admin, clear user
+        if (sessionStorage.getItem('adminToken') === null) {
+          setUser({});
+        }
       }
       setIsAuthRestored(true);
     });
@@ -191,6 +274,16 @@ export default function App() {
       const items = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Product));
       setProducts(items);
     }, (err) => console.error("Error reading listed products:", err));
+    return () => unsubscribe();
+  }, []);
+
+  // Real-time synchronization of system broadcast alerts
+  useEffect(() => {
+    const q = query(collection(db, 'system_alerts'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const items = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      setSystemAlerts(items);
+    }, (err) => console.warn("Broadcasting channel closed or unprovisioned yet:", err));
     return () => unsubscribe();
   }, []);
 
@@ -236,39 +329,49 @@ export default function App() {
       return;
     }
 
-    // National Administrator Override login
-    if ((username.toLowerCase().trim() === 'admin' || username.toLowerCase().trim() === 'host') && password === 'admin') {
+    // National Administrator Override login via secure backend bcrypt check
+    if (username.toLowerCase().trim() === 'admin') {
       setIsActionLoading(true);
       setLoginError(null);
       try {
-        const result = await signInWithEmailAndPassword(auth, 'admin@khetnet.com', 'admin123');
-        const adminProfile: User = {
-          id: result.user.uid,
-          name: 'Chief Platform Director',
-          email: 'admin@khetnet.com',
-          role: 'host',
-          age: 38,
-          state: 'Delhi (NCT)',
-          region: 'Command Base',
-          language: 'en'
-        };
-        setUser(adminProfile);
-        setStage('host');
-        logSessionHistory(adminProfile);
-      } catch (err) {
-        // Fallback for sandboxed developer presentations
-        const demoAdmin: User = { 
-          id: 'demo_national_host', 
-          name: 'Platform Director (Demo Console)', 
-          email: 'admin@khetnet.com', 
-          role: 'host',
-          age: 38,
-          state: 'Delhi (NCT)',
-          region: 'Command Base',
-          language: 'en'
-        };
-        setUser(demoAdmin);
-        setStage('host');
+        const response = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await response.json();
+        if (data.success) {
+          sessionStorage.setItem('adminToken', data.token);
+          const adminProfile: User = {
+            id: 'admin_national_base',
+            name: 'Chief Platform Director',
+            email: 'admin@khetnet.com',
+            role: 'host',
+            age: 38,
+            state: 'Delhi (NCT)',
+            region: 'Command Base',
+            language: 'en'
+          };
+          setUser(adminProfile);
+          setStage('host');
+          logSessionHistory(adminProfile);
+          try {
+            await signInWithEmailAndPassword(auth, 'admin@khetnet.com', password);
+          } catch (authErr: any) {
+            try {
+              await createUserWithEmailAndPassword(auth, 'admin@khetnet.com', password);
+            } catch (createErr) {
+              console.warn("Could not register admin in Firebase on interaction:", createErr);
+            }
+          }
+        } else {
+          setLoginError(data.error || "Credentials verification failed. Please try again.");
+        }
+      } catch (err: any) {
+        console.error("Secure admin auth error:", err);
+        setLoginError("Failed to communicate with systems admin node: " + err.message);
       } finally {
         setIsActionLoading(false);
       }
@@ -398,6 +501,19 @@ export default function App() {
 
   const logout = async () => {
     setIsActionLoading(true);
+    const token = sessionStorage.getItem('adminToken');
+    if (token) {
+      try {
+        await fetch('/api/admin/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+      } catch (err) {
+        console.warn("Backend session invalidation warning:", err);
+      }
+      sessionStorage.removeItem('adminToken');
+    }
     try {
       await signOut(auth);
     } catch (e) {
@@ -465,38 +581,100 @@ export default function App() {
   // SUBSCRIPTION & RAZORPAY VERIFICATIONS
   // ---------------------------------------------------------
   
-  const triggerPlanChoice = (tier: 'gold' | 'platinum', price: number) => {
+  const triggerPlanChoice = async (tier: any, price: number, isTrialRegistration?: boolean) => {
+    if (isTrialRegistration) {
+      if (!user.id) {
+        alert("Please authorize your session first.");
+        return;
+      }
+      setIsActionLoading(true);
+      try {
+        await setDoc(doc(db, 'users', user.id), {
+          ...user,
+          isSubscribed: true,
+          subscriptionTier: 'premium_farmer',
+          isTrialActive: true,
+          trialStartedAt: Date.now()
+        });
+        
+        setUser(prev => ({
+          ...prev,
+          isSubscribed: true,
+          subscriptionTier: 'premium_farmer'
+        }));
+        
+        alert("🎉 Congratulations! Your 30-Day Premium Farmer Free Trial is active. Unlimited AI diagnostics, precision advisor forecasts, and disease scanner features are fully unlocked.");
+        setActiveSubTab('hub');
+      } catch (e) {
+        console.error(e);
+        setUser(prev => ({
+          ...prev,
+          isSubscribed: true,
+          subscriptionTier: 'premium_farmer'
+        }));
+      } finally {
+        setIsActionLoading(false);
+      }
+      return;
+    }
+
+    if (tier === 'free_farmer') {
+      if (!user.id) return;
+      setIsActionLoading(true);
+      try {
+        await setDoc(doc(db, 'users', user.id), {
+          ...user,
+          isSubscribed: false,
+          subscriptionTier: 'free_farmer'
+        });
+        
+        setUser(prev => ({
+          ...prev,
+          isSubscribed: false,
+          subscriptionTier: 'free_farmer'
+        }));
+        
+        alert("You have converted back to the Free Farmer Plan. Limited queries will apply from your next session.");
+        setActiveSubTab('hub');
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsActionLoading(false);
+      }
+      return;
+    }
+
     setSelectedPlan(tier);
     setSelectedPlanPrice(price);
     setIsPaymentOpen(true);
   };
 
-  const handlePaymentSuccess = async (planTier: 'gold' | 'platinum') => {
+  const handlePaymentSuccess = async (planTier: any) => {
     if (!user.id) return;
     setIsActionLoading(true);
     try {
-      // Complete actual persist update on firestore
+      const isSub = planTier !== 'free_farmer';
       await setDoc(doc(db, 'users', user.id), {
         ...user,
-        isSubscribed: true,
+        isSubscribed: isSub,
         subscriptionTier: planTier,
         viewsRemaining: 99999
       });
       
       setUser(prev => ({
         ...prev,
-        isSubscribed: true,
+        isSubscribed: isSub,
         subscriptionTier: planTier
       }));
 
-      alert(`Congratulations! You are officially upgraded to KhetNet ${planTier.toUpperCase()} Partner.`);
-      setActiveSubTab('sell_marketplace'); // Return to unlocked Marketplace board
+      const readableTier = String(planTier).replace('_', ' ').toUpperCase();
+      alert(`Congratulations! You are officially upgraded to KhetNet ${readableTier} Partner.`);
+      setActiveSubTab('hub');
     } catch (e) {
       console.error("Firestore user premium update failed:", e);
-      // Safeguard local state
       setUser(prev => ({
         ...prev,
-        isSubscribed: true,
+        isSubscribed: planTier !== 'free_farmer',
         subscriptionTier: planTier
       }));
     } finally {
@@ -688,7 +866,7 @@ export default function App() {
               
               {/* Home Hub View: Exactly 4 large category blocks with animations */}
               {activeSubTab === 'hub' && (
-                <div className="max-w-xl mx-auto px-6 py-12 space-y-8">
+                <div className="max-w-xl mx-auto px-6 py-12 space-y-8 animate-fade-in">
                   
                   {/* Greeting Block */}
                   <div className="space-y-1">
@@ -696,6 +874,110 @@ export default function App() {
                     <h1 className="text-3xl font-heading font-black text-gray-950 leading-tight">
                       Namaste, {user.name}!
                     </h1>
+                  </div>
+
+                  {/* National Administration Broadcast Desk Alerts */}
+                  {systemAlerts.length > 0 && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-amber-50 border-2 border-amber-200 p-5 rounded-[30px] text-left space-y-2.5 relative overflow-hidden shadow-sm"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-1.5">
+                          <span className="flex h-2 w-2 relative">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-450 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-650"></span>
+                          </span>
+                          <span className="text-[9px] text-amber-800 font-extrabold uppercase tracking-widest bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-505/10">
+                            🔔 National Broadcast Bureau
+                          </span>
+                        </div>
+                        <span className="text-[8px] bg-amber-200/50 text-amber-900 font-extrabold uppercase px-2 py-0.5 rounded font-mono">
+                          priority: {systemAlerts[0].priority || 'medium'}
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="text-xs font-black text-gray-950 flex items-center gap-1 leading-normal uppercase tracking-wide">
+                          {systemAlerts[0].title}
+                        </h4>
+                        <p className="text-[11.5px] text-gray-700 font-semibold leading-relaxed">
+                          {systemAlerts[0].body}
+                        </p>
+                      </div>
+                      <div className="text-[8px] uppercase tracking-wider font-mono text-amber-80 * 0.6 font-semibold opacity-70">
+                        Official Release • {systemAlerts[0].publisher || 'KhetNet Admin Base'}
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Upgraded Weather & Rain Risk Alert Module */}
+                  <div className="bg-gradient-to-br from-[#FAFDF6] via-white to-white border-2 border-[#E2F0D9] p-5.5 rounded-[35px] text-left space-y-3.5 shadow-sm">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-0.5">
+                        <span className="text-[9px] text-[#4C6B36] font-extrabold uppercase tracking-widest bg-[#F0F7EB] px-2.5 py-1 rounded-full border border-[#D0E6C3]">Agricultural Climate Advisor</span>
+                        <h4 className="text-lg font-black text-gray-950 pt-1.5 flex items-center gap-1">
+                          🌤️ 31°C <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">• Partly Cloudy • {user.region || 'Amritsar'}</span>
+                        </h4>
+                      </div>
+                      <span className="text-3xl">🌦️</span>
+                    </div>
+
+                    {/* Key Indicators */}
+                    <div className="grid grid-cols-3 gap-2 text-center bg-[#FAFDF6] p-2.5 rounded-2xl border border-[#E2F0D9] text-gray-700">
+                      <div className="space-y-0.5">
+                        <p className="text-[8px] font-black uppercase text-gray-400">Wind speed</p>
+                        <p className="text-xs font-black">16 km/h</p>
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-[8px] font-black uppercase text-gray-400">Soil Moisture</p>
+                        <p className="text-xs font-black">22% Centibar</p>
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-[8px] font-black uppercase text-gray-400">Rain Risk</p>
+                        <p className="text-xs font-black text-amber-600">80% High</p>
+                      </div>
+                    </div>
+
+                    {/* Rain Alert & Spray Window Indicator */}
+                    <div className="bg-amber-50 border border-amber-200 p-3 rounded-2xl flex items-start gap-2.5 text-left">
+                      <span className="text-sm shrink-0">⚠️</span>
+                      <div>
+                        <p className="text-[9px] font-black text-amber-800 uppercase tracking-widest leading-none">Rain & Fungal Alert Triggered</p>
+                        <p className="text-[11px] text-amber-700 font-semibold mt-1 leading-snug">
+                          Heavy rain forecasted within 24 hours. <b>Pesticide Spray window is CLOSED</b>. Fungal blight risk high for Tomato & Basmati.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mandi Benchmark Price Index Ticker */}
+                  <div className="bg-neutral-900 text-white rounded-3xl py-2 px-4 shadow-sm text-center overflow-hidden flex items-center gap-3">
+                    <span className="text-[9px] bg-emerald-600 text-white font-black uppercase tracking-widest px-2 py-0.5 rounded shrink-0">APMC Mandi Price index</span>
+                    <div className="text-[10px] uppercase font-mono tracking-wider text-gray-300 w-full truncate text-left">
+                      🌾 Basmati 1121: ₹3,950/qtl (▲ 1.4%) • 🌾 Wheat Sharbati: ₹2,420/qtl (▼ 0.5%) • 🧅 Onion Nasik: ₹1,850/qtl (▲ 2.8%) • 🥔 Potato: ₹1,200/qtl (▲ 0.2%) • 🧪 urea: ₹266/bag
+                    </div>
+                  </div>
+
+                  {/* Live Activity Ticker */}
+                  <div className="bg-[#4C6B36] p-3.5 rounded-3xl text-left shadow-sm flex items-center justify-between text-white relative overflow-hidden">
+                    <div className="flex items-center gap-2 w-full">
+                      <span className="text-[8px] bg-white text-[#4C6B36] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full shrink-0">Live Platform activities</span>
+                      <div className="h-5 overflow-hidden w-full relative flex items-center">
+                        <AnimatePresence mode="wait">
+                          <motion.p
+                            key={liveActivityIndex}
+                            initial={{ opacity: 0, y: 15 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -15 }}
+                            transition={{ duration: 0.3 }}
+                            className="text-xs font-black text-emerald-50 truncate pr-4"
+                          >
+                            {liveActivities[liveActivityIndex]}
+                          </motion.p>
+                        </AnimatePresence>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -829,6 +1111,30 @@ export default function App() {
                       <div>
                         <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Crop Insurance</h3>
                         <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Yield risk shield cover</p>
+                      </div>
+                    </div>
+
+                    {/* Card 11: Agri Community Section */}
+                    <div 
+                      onClick={() => setActiveSubTab('community')}
+                      className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
+                    >
+                      <span className="text-4xl">🗣️</span>
+                      <div>
+                        <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Agri Community</h3>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Grower chats & Auto Translation</p>
+                      </div>
+                    </div>
+
+                    {/* Card 12: Khet Khata Accounting Ledger */}
+                    <div 
+                      onClick={() => setActiveSubTab('khata')}
+                      className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
+                    >
+                      <span className="text-4xl">📓</span>
+                      <div>
+                        <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Khet Khata</h3>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Bookkeeping, Profit Analytics</p>
                       </div>
                     </div>
 
@@ -1125,20 +1431,31 @@ export default function App() {
                                   </div>
                                 ) : (
                                   // Premium content fully UNLOCKED
-                                  <div className="mt-4 pt-4 border-t border-[#F0F7EB] flex items-center justify-between gap-3 bg-[#F0F7EB]/10 p-3 rounded-2xl border border-[#E2F0D9]/30">
-                                    <div className="min-w-0">
+                                  <div className="mt-4 pt-4 border-t border-[#F0F7EB] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#F0F7EB]/10 p-3 rounded-2xl border border-[#E2F0D9]/30">
+                                    <div className="min-w-0 flex-1">
                                       <p className="text-[10px] text-[#4C6B36] font-black uppercase tracking-widest flex items-center gap-1">
-                                        <Award className="w-3.5 h-3.5" /> Direct Contact Unlocked
+                                        <Award className="w-3.5 h-3.5" /> Direct Contact Active
                                       </p>
                                       <h4 className="font-extrabold text-[#1D1D1D] text-xs truncate mt-0.5">{prod.farmerName}</h4>
-                                      <p className="text-[9px] text-gray-400 leading-none mt-1">{prod.region}, {prod.state}</p>
+                                      <p className="text-[9px] text-gray-400 leading-none mt-0.5">{prod.region || 'Regional Mandi'}, {prod.state}</p>
+                                      <span className="text-[8px] bg-[#E2F0D9] text-[#2C411E] font-black px-1.5 py-0.2 rounded mt-1.5 inline-block uppercase font-mono">Grade: {prod.grade || 'A'} • Moisture: {prod.moisturePercent || '12'}%</span>
                                     </div>
-                                    <a
-                                      href={`tel:${prod.farmerMobile}`}
-                                      className="p-3 bg-[#4C6B36] hover:bg-[#3D562B] text-white rounded-full flex items-center justify-center active:scale-95 transition-all shadow-md shrink-0"
-                                    >
-                                      <Phone className="w-4 h-4 fill-white text-[#4C6B36]" />
-                                    </a>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={() => setActiveSubTab('escrow')}
+                                        className="py-2.5 px-3.5 bg-neutral-900 text-white rounded-xl text-[9px] font-black uppercase tracking-wider hover:bg-neutral-800 transition-all flex items-center gap-1 active:scale-95"
+                                        title="Initiate Escrow Holding Cargo Securement"
+                                      >
+                                        🔒 Escrow
+                                      </button>
+                                      <a
+                                        href={`tel:${prod.farmerMobile}`}
+                                        className="p-3 bg-[#4C6B36] hover:bg-[#3D562B] text-white rounded-xl flex items-center justify-center active:scale-95 transition-all shadow-md animate-pulse"
+                                        title="Call Farmer"
+                                      >
+                                        <Phone className="w-3.5 h-3.5 fill-white text-[#4C6B36]" />
+                                      </a>
+                                    </div>
                                   </div>
                                 )}
                               </motion.div>
@@ -1178,6 +1495,7 @@ export default function App() {
                 <div className="py-6 animate-fade-in">
                   <SubscriptionPlans 
                     t={t} 
+                    currentUser={user}
                     onSelectPlan={triggerPlanChoice} 
                     onBackToHome={() => setActiveSubTab('hub')} 
                   />
@@ -1286,6 +1604,36 @@ export default function App() {
                     </button>
                   </div>
                   <TraderDashboard user={user} t={t} setActiveSubTab={setActiveSubTab} />
+                </div>
+              )}
+
+              {/* Sub Tab 13: Agri Community Section */}
+              {activeSubTab === 'community' && (
+                <div className="py-6 animate-fade-in">
+                  <div className="max-w-xl mx-auto px-6 mb-2">
+                    <button 
+                      onClick={() => setActiveSubTab('hub')}
+                      className="text-xs font-black uppercase text-[#4C6B36] tracking-widest hover:underline"
+                    >
+                      ← Return to Main Portal
+                    </button>
+                  </div>
+                  <AgriCommunity user={user} t={t} />
+                </div>
+              )}
+
+              {/* Sub Tab 14: Khet Khata Accounting Ledger */}
+              {activeSubTab === 'khata' && (
+                <div className="py-6 animate-fade-in">
+                  <div className="max-w-xl mx-auto px-6 mb-2">
+                    <button 
+                      onClick={() => setActiveSubTab('hub')}
+                      className="text-xs font-black uppercase text-[#4C6B36] tracking-widest hover:underline"
+                    >
+                      ← Return to Main Portal
+                    </button>
+                  </div>
+                  <KhetKhata user={user} t={t} />
                 </div>
               )}
 

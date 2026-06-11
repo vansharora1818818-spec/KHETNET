@@ -16,7 +16,7 @@ export interface User {
   region: string;
   language: Language;
   isSubscribed?: boolean;
-  subscriptionTier?: 'gold' | 'platinum' | null;
+  subscriptionTier?: 'free_farmer' | 'premium_farmer' | 'pro_farmer' | 'trader_wholesaler' | 'enterprise' | 'gold' | 'platinum' | null;
   isSuspended?: boolean;
 }
 

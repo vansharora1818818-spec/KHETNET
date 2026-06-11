@@ -64,6 +64,8 @@ interface VoiceAssistantProps {
 
 const supportedVoiceLanguages = [
   { code: 'hi-IN', name: 'Hindi', native: 'हिंदी' },
+  { code: 'bho-IN', name: 'Bhojpuri', native: 'भोजपुरी' },
+  { code: 'bgc-IN', name: 'Haryanvi', native: 'हरियाणवी' },
   { code: 'pa-IN', name: 'Punjabi', native: 'ਪੰਜਾਬੀ' },
   { code: 'ur-IN', name: 'Urdu', native: 'اردو' },
   { code: 'en-IN', name: 'English', native: 'English' },

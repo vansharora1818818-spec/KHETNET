@@ -5,8 +5,8 @@ import { Shield, CreditCard, Smartphone, Landmark, CheckCircle, AlertCircle, Loa
 interface RazorpayModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (tier: 'gold' | 'platinum') => void;
-  tier: 'gold' | 'platinum';
+  onSuccess: (tier: any) => void;
+  tier: any;
   price: number;
 }
 
@@ -57,7 +57,7 @@ export function RazorpayModal({ isOpen, onClose, onSuccess, tier, price }: Razor
                 <span className="text-[10px] text-gray-400 font-bold uppercase">Sandbox</span>
               </div>
               <h3 className="text-xl font-black text-white">KhetNet Agritech Ltd.</h3>
-              <p className="text-xs text-gray-400">Upgrade to KhetNet {tier === 'gold' ? 'Gold Partner' : 'Platinum Partner'}</p>
+              <p className="text-xs text-gray-400">Upgrade to KhetNet {String(tier || 'Premium').replace('_', ' ').toUpperCase()}</p>
             </div>
             <button 
               onClick={onClose} 

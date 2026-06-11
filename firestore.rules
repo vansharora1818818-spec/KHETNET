@@ -11,8 +11,15 @@ service cloud.firestore {
     function isAdmin() { 
       return isSignedIn() && (
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        (request.auth.token.email == 'admin@khetnet.com' && request.auth.token.email_verified == true)
+        request.auth.token.email == 'admin@khetnet.com'
       ); 
+    }
+
+    function isHost() {
+      return isSignedIn() && (
+        isAdmin() ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'host'
+      );
     }
 
     function isValidId(id) { 
@@ -31,15 +38,15 @@ service cloud.firestore {
       allow get: if isSignedIn(); // allow profile viewing for and by other users for trading/matching transparency
       allow list: if isSignedIn(); // needed for matching algorithms and dashboards
       allow create: if isOwner(userId) && isValidUser(incoming());
-      allow update: if (isOwner(userId) || isAdmin()) && (
+      allow update: if (isOwner(userId) || isHost()) && (
         (incoming().diff(existing()).affectedKeys().hasOnly([
           'name', 'age', 'mobile', 'email', 'language', 'role', 'state', 'region', 
           'isSubscribed', 'subscriptionTier', 'viewsRemaining', 'isVerified', 
           'aadhaarDigits', 'otpVerified', 'trustScore', 'tradeHistoryCount', 'buyerRating'
         ]) && isValidUser(incoming())) ||
-        isAdmin()
+        isHost()
       );
-      allow delete: if isAdmin();
+      allow delete: if isHost();
     }
 
     // --- PRODUCTS ---
@@ -59,9 +66,9 @@ service cloud.firestore {
         // Wholesaler Purchase
         (incoming().diff(existing()).affectedKeys().hasOnly(['maxQuantity']) && incoming().maxQuantity >= 0) ||
         // Escrow/Status
-        (incoming().diff(existing()).affectedKeys().hasAll(['maxQuantity']) || isAdmin())
+        (incoming().diff(existing()).affectedKeys().hasAll(['maxQuantity']) || isHost())
       );
-      allow delete: if isAdmin() || isOwner(existing().farmerId);
+      allow delete: if isHost() || isOwner(existing().farmerId);
     }
 
     // --- ORDERS ---
@@ -75,11 +82,11 @@ service cloud.firestore {
                isValidId(data.wholesalerId);
       }
 
-      allow get: if isSignedIn() && (isOwner(existing().farmerId) || isOwner(existing().wholesalerId) || isAdmin());
+      allow get: if isSignedIn() && (isOwner(existing().farmerId) || isOwner(existing().wholesalerId) || isHost());
       allow list: if isSignedIn() && (
         (resource.data.farmerId == request.auth.uid) || 
         (resource.data.wholesalerId == request.auth.uid) || 
-        isAdmin()
+        isHost()
       );
       
       allow create: if isSignedIn() && isValidOrder(incoming()) && isOwner(incoming().wholesalerId);
@@ -87,36 +94,48 @@ service cloud.firestore {
         // Status Transition Engine for Escrow (supports pending, approved, declined, escrow_deposited, delivered, escrow_released)
         (isOwner(existing().farmerId) || isOwner(existing().wholesalerId)) && 
         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'escrowHeldAt', 'escrowReleasedAt'])
-      ) || isAdmin();
-      allow delete: if isAdmin();
+      ) || isHost();
+      allow delete: if isHost();
     }
 
     // --- LOGIN SESSIONS ---
     match /login_sessions/{sessionId} {
-      allow read: if isAdmin();
+      allow read: if isHost();
       allow create: if isSignedIn() && isOwner(incoming().userId);
     }
 
     // --- LOGISTICS BOOKINGS ---
     match /logistics_bookings/{bookingId} {
       allow read, create, update: if isSignedIn();
-      allow delete: if isAdmin();
+      allow delete: if isHost();
     }
 
     // --- CROP INSURANCES ---
     match /crop_insurances/{insuranceId} {
       allow read, create, update: if isSignedIn();
-      allow delete: if isAdmin();
+      allow delete: if isHost();
+    }
+
+    // --- COMMUNITY POSTS ---
+    match /community_posts/{postId} {
+      allow read, create, update: if isSignedIn();
+      allow delete: if isSignedIn() && (request.auth.uid == existing().userId || isHost());
+    }
+
+    // --- KHATA ENTRIES ---
+    match /khata_entries/{entryId} {
+      allow read, create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (request.auth.uid == existing().userId);
     }
 
     // --- CHATS ---
     match /chats/{orderId} {
-      allow read: if isSignedIn() && (request.auth.uid in existing().participants || isAdmin());
+      allow read: if isSignedIn() && (request.auth.uid in existing().participants || isHost());
       allow create: if isSignedIn() && (request.auth.uid in incoming().participants);
       allow update: if isSignedIn() && (request.auth.uid in existing().participants) && (incoming().diff(existing()).affectedKeys().hasOnly(['lastMessage', 'lastUpdate']));
       
       match /messages/{msgId} {
-        allow read: if isSignedIn() && (get(/databases/$(database)/documents/chats/$(orderId)).data.participants.hasAny([request.auth.uid]) || isAdmin());
+        allow read: if isSignedIn() && (get(/databases/$(database)/documents/chats/$(orderId)).data.participants.hasAny([request.auth.uid]) || isHost());
         allow create: if isSignedIn() && isOwner(incoming().senderId) && (get(/databases/$(database)/documents/chats/$(orderId)).data.participants.hasAny([request.auth.uid]));
       }
     }
@@ -127,6 +146,18 @@ service cloud.firestore {
     
     match /test/connection {
       allow read: if true;
+    }
+
+    // --- SYSTEM ALERTS ---
+    match /system_alerts/{alertId} {
+      allow read: if true;
+      allow create, update, delete: if isHost();
+    }
+
+    // --- LEADS ---
+    match /leads/{leadId} {
+      allow read: if isHost();
+      allow create: if true;
     }
 
     // Default Deny

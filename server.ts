@@ -3,12 +3,27 @@ import path from "path";
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
+import bcrypt from "bcryptjs";
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
 const PORT = 3000;
+
+// Admin authentication configs
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
+const ADMIN_PASSWORD_PLAIN = process.env.ADMIN_PASSWORD || "admin161";
+const ADMIN_PASSWORD_HASH = bcrypt.hashSync(ADMIN_PASSWORD_PLAIN, 10);
+
+// Admin active backend sessions state
+interface AdminSession {
+  username: string;
+  role: string;
+  lastActive: number;
+}
+const adminActiveSessions = new Map<string, AdminSession>();
+
 
 // Set up larger limits for base64 leaf image scan uploads
 app.use(express.json({ limit: "15mb" }));
@@ -43,6 +58,79 @@ function getAiClient() {
 // 1. Health check
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "KhetNet National Platform APIs Operational" });
+});
+
+// Admin Security & Authentication Endpoints
+app.post("/api/admin/login", (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ success: false, error: "Please enter both username and password." });
+  }
+
+  const normalizedUsername = username.toLowerCase().trim();
+  if (normalizedUsername === ADMIN_USERNAME) {
+    const isMatch = bcrypt.compareSync(password, ADMIN_PASSWORD_HASH);
+    if (isMatch) {
+      // Create a cryptographically secure-like unique session token
+      const token = "khetnet_admin_sess_" + Math.random().toString(36).substring(2) + Date.now().toString(36);
+      adminActiveSessions.set(token, {
+        username: ADMIN_USERNAME,
+        role: "admin",
+        lastActive: Date.now()
+      });
+      console.log(`[Admin Systems] Secure Session established for admin. Token prefix: ${token.substring(0, 15)}`);
+      return res.json({
+        success: true,
+        token,
+        user: {
+          username: ADMIN_USERNAME,
+          role: "admin"
+        }
+      });
+    }
+  }
+
+  console.warn(`[Admin Warning] Unauthorized login attempt for user: ${username}`);
+  return res.status(401).json({ success: false, error: "Invalid credit clearance credentials." });
+});
+
+app.post("/api/admin/verify-token", (req, res) => {
+  const { token } = req.body;
+  if (!token) {
+    return res.status(400).json({ success: false, error: "Session token is required." });
+  }
+
+  const session = adminActiveSessions.get(token);
+  if (!session) {
+    return res.status(401).json({ success: false, error: "Invalid or expired session credentials." });
+  }
+
+  const now = Date.now();
+  const TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes inactivity timeout
+  if (now - session.lastActive > TIMEOUT_MS) {
+    adminActiveSessions.delete(token);
+    console.log(`[Admin Systems] Session expired automatically due to inactivity.`);
+    return res.status(401).json({ success: false, error: "Session expired due to inactivity. Please log in again." });
+  }
+
+  // Update last active timestamp
+  session.lastActive = now;
+  return res.json({
+    success: true,
+    user: {
+      username: session.username,
+      role: session.role
+    }
+  });
+});
+
+app.post("/api/admin/logout", (req, res) => {
+  const { token } = req.body;
+  if (token) {
+    adminActiveSessions.delete(token);
+    console.log(`[Admin Systems] Secure manual logout completed.`);
+  }
+  return res.json({ success: true });
 });
 
 // 2. Chat / Ask KhetNet AI Assistant Endpoint
