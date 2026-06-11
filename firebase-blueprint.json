@@ -134,6 +134,32 @@
         "date": { "type": "string" },
         "createdAt": { "type": "number" }
       }
+    },
+    "Stock": {
+      "title": "Farmer Inventory Stock",
+      "description": "Granular crop inventory listings owned by farmers.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "cropName": { "type": "string" },
+        "quantity": { "type": "number" },
+        "grade": { "type": "string" },
+        "location": { "type": "string" },
+        "addedDate": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["userId", "cropName", "quantity"]
+    },
+    "UsernameLock": {
+      "title": "Username Registrations Lock",
+      "description": "Atomic unique registry keys to prevent race condition duplicate usernames.",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["username", "createdAt"]
     }
   },
   "firestore": {
@@ -164,6 +190,14 @@
     "khata_entries": {
       "schema": "KhataEntry",
       "description": "Farm-level ledger accounting entries."
+    },
+    "stocks": {
+      "schema": "Stock",
+      "description": "Farmer crop inventory stocks detail."
+    },
+    "username_locks": {
+      "schema": "UsernameLock",
+      "description": "Unique username lock registers."
     }
   }
 }

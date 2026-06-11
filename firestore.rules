@@ -160,6 +160,32 @@ service cloud.firestore {
       allow create: if true;
     }
 
+    // --- STOCKS ---
+    match /stocks/{stockId} {
+      function isValidStock(data) {
+        return data.cropName is string && data.cropName.size() <= 100 &&
+               data.quantity is number && data.quantity >= 0 &&
+               data.grade is string && data.grade.size() <= 50 &&
+               data.location is string && data.location.size() <= 200 &&
+               isValidId(data.userId);
+      }
+
+      allow get: if isSignedIn() && isValidId(stockId);
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isHost());
+      allow create: if isSignedIn() && isValidId(stockId) && isValidStock(incoming()) && isOwner(incoming().userId);
+      allow update: if isSignedIn() && isValidId(stockId) && isOwner(existing().userId) && (
+        (incoming().diff(existing()).affectedKeys().hasOnly(['quantity']) && incoming().quantity >= 0) ||
+        (isValidStock(incoming()) && incoming().userId == existing().userId && incoming().createdAt == existing().createdAt)
+      );
+      allow delete: if isSignedIn() && isValidId(stockId) && isOwner(existing().userId);
+    }
+
+    // --- USERNAME LOCKS ---
+    match /username_locks/{username} {
+      allow get, create: if true;
+      allow update, delete: if false;
+    }
+
     // Default Deny
     match /{document=**} {
       allow read, write: if false;

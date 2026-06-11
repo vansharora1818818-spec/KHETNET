@@ -157,6 +157,19 @@ export function VoiceAssistant({
     processInputRef.current = processKhetMitraVoiceInput;
   });
 
+  // Listener for dynamic external home-screen launcher triggers
+  useEffect(() => {
+    const triggerMicOpen = () => {
+      setIsOpen(true);
+      // Auto-focus triggers voice assistant microphone capture
+      setTimeout(() => {
+        startListening();
+      }, 500);
+    };
+    window.addEventListener('open-khetmitra-ai', triggerMicOpen);
+    return () => window.removeEventListener('open-khetmitra-ai', triggerMicOpen);
+  }, []);
+
   // Monitor online status
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);

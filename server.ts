@@ -4,12 +4,83 @@ import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import bcrypt from "bcryptjs";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getFirestore, collection, query, where, getDocs, doc, getDoc, runTransaction, setDoc } from "firebase/firestore";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously } from "firebase/auth";
+import fs from "fs";
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
 const PORT = 3000;
+
+// Lazy initialized Firestore DB connection
+let dbInstance: any = null;
+let isServerAuthenticated = false;
+
+async function ensureServerAuth() {
+  if (isServerAuthenticated) return;
+  try {
+    const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    const firebaseApp = getApps().length === 0 ? initializeApp(config) : getApp();
+    const auth = getAuth(firebaseApp);
+    
+    try {
+      await signInWithEmailAndPassword(auth, "admin@khetnet.com", "admin161");
+      isServerAuthenticated = true;
+      console.log("Server-side session successfully authenticated as administrator.");
+    } catch (err: any) {
+      const isCredentialError = err.code === "auth/invalid-credential" || 
+                               err.code === "auth/user-not-found" || 
+                               (err.message && err.message.includes("invalid-credential"));
+      if (isCredentialError) {
+        console.log("Admin account not found or credential invalid. Creating admin@khetnet.com programmatically...");
+        try {
+          await createUserWithEmailAndPassword(auth, "admin@khetnet.com", "admin161");
+          isServerAuthenticated = true;
+          console.log("Server-side session successfully created and authenticated admin@khetnet.com.");
+        } catch (regErr: any) {
+          console.warn("Could not register admin@khetnet.com, trying anonymous sign-in fallback:", regErr.message);
+          try {
+            await signInAnonymously(auth);
+            isServerAuthenticated = true;
+            console.log("Server-side session successfully signed in anonymously.");
+          } catch (anonErr: any) {
+            console.error("Critical: Anonymous sign-in also failed:", anonErr.message);
+          }
+        }
+      } else {
+        console.warn("Sign-in failed with error code:", err.code, err.message);
+        try {
+          await signInAnonymously(auth);
+          isServerAuthenticated = true;
+          console.log("Server-side session signed in anonymously after login failure.");
+        } catch (anonErr: any) {
+          console.error("Critical: Anonymous fallback failed:", anonErr.message);
+        }
+      }
+    }
+  } catch (err: any) {
+    console.warn("Failed to authenticate server-side session as administrator. Queries might fail rules verification:", err.message);
+  }
+}
+
+function getDb() {
+  if (!dbInstance) {
+    try {
+      const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+      const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+      const firebaseApp = getApps().length === 0 ? initializeApp(config) : getApp();
+      dbInstance = getFirestore(firebaseApp, config.firestoreDatabaseId);
+    } catch (err) {
+      console.error("Failed to initialize Firebase on the server backend:", err);
+      throw err;
+    }
+  }
+  return dbInstance;
+}
 
 // Admin authentication configs
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
@@ -58,6 +129,133 @@ function getAiClient() {
 // 1. Health check
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "KhetNet National Platform APIs Operational" });
+});
+
+// Username Checking and Unique Reservation Endpoints (Pristine Form Validation & Collision Prevention)
+app.get("/api/check-username", async (req, res) => {
+  const username = req.query.username;
+  if (!username || typeof username !== "string") {
+    return res.status(400).json({ error: "Username parameter is required" });
+  }
+
+  const normalized = username.toLowerCase().trim();
+  if (normalized === "admin") {
+    return res.json({ available: false, error: "Username already exists. Please choose another username." });
+  }
+
+  try {
+    await ensureServerAuth();
+    const db = getDb();
+
+    // 1. Check in username_locks first (fast document read)
+    const lockRef = doc(db, "username_locks", normalized);
+    const lockSnap = await getDoc(lockRef);
+    if (lockSnap.exists()) {
+      return res.json({ available: false, error: "Username already exists. Please choose another username." });
+    }
+
+    // 2. Check in users collection (for old accounts or email matching)
+    const virtualEmail = `${normalized}@khetnet.local`;
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("email", "==", virtualEmail));
+    const querySnap = await getDocs(q);
+    if (!querySnap.empty) {
+      return res.json({ available: false, error: "Username already exists. Please choose another username." });
+    }
+
+    return res.json({ available: true });
+  } catch (err: any) {
+    console.error("Error in /api/check-username:", err);
+    return res.status(500).json({ error: "Database verification failed: " + err.message });
+  }
+});
+
+app.post("/api/check-username", async (req, res) => {
+  const { username } = req.body;
+  if (!username || typeof username !== "string") {
+    return res.status(400).json({ error: "Username parameter is required" });
+  }
+
+  const normalized = username.toLowerCase().trim();
+  if (normalized === "admin") {
+    return res.json({ available: false, error: "Username already exists. Please choose another username." });
+  }
+
+  try {
+    await ensureServerAuth();
+    const db = getDb();
+
+    // 1. Check in username_locks first (fast document read)
+    const lockRef = doc(db, "username_locks", normalized);
+    const lockSnap = await getDoc(lockRef);
+    if (lockSnap.exists()) {
+      return res.json({ available: false, error: "Username already exists. Please choose another username." });
+    }
+
+    // 2. Check in users collection (for old accounts or email matching)
+    const virtualEmail = `${normalized}@khetnet.local`;
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("email", "==", virtualEmail));
+    const querySnap = await getDocs(q);
+    if (!querySnap.empty) {
+      return res.json({ available: false, error: "Username already exists. Please choose another username." });
+    }
+
+    return res.json({ available: true });
+  } catch (err: any) {
+    console.error("Error in /api/check-username POST:", err);
+    return res.status(500).json({ error: "Database verification failed: " + err.message });
+  }
+});
+
+app.post("/api/reserve-username", async (req, res) => {
+  const { username } = req.body;
+  if (!username || typeof username !== "string") {
+    return res.status(400).json({ error: "Username is required" });
+  }
+
+  const normalized = username.toLowerCase().trim();
+  if (normalized === "admin") {
+    return res.status(409).json({ error: "Username already exists. Please choose another username." });
+  }
+
+  try {
+    await ensureServerAuth();
+    const db = getDb();
+    const lockRef = doc(db, "username_locks", normalized);
+
+    // Run custom Firestore transaction to lock the username atomically across database instances
+    await runTransaction(db, async (transaction) => {
+      // 1. Check in lock document
+      const lockSnap = await transaction.get(lockRef);
+      if (lockSnap.exists()) {
+        throw new Error("TAKEN");
+      }
+
+      // 2. Perform second validation (search users)
+      const virtualEmail = `${normalized}@khetnet.local`;
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("email", "==", virtualEmail));
+      const querySnap = await getDocs(q);
+      if (!querySnap.empty) {
+        throw new Error("TAKEN");
+      }
+
+      // 3. Atomically write lock document to prevent race conditions
+      transaction.set(lockRef, {
+        username: normalized,
+        createdAt: Date.now()
+      });
+    });
+
+    return res.json({ success: true, message: "Username reserved successfully." });
+  } catch (err: any) {
+    if (err.message === "TAKEN") {
+      return res.status(409).json({ error: "Username already exists. Please choose another username." });
+    }
+    console.error("Reserve username failure:", err);
+    return res.status(500).json({ error: "Backend reservation processing failed: " + err.message });
+  }
 });
 
 // Admin Security & Authentication Endpoints

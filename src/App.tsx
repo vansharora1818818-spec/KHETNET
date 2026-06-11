@@ -42,6 +42,9 @@ import { DiseaseScanner } from './components/DiseaseScanner';
 import { HostCenter } from './components/HostCenter';
 import { AgriAdvisory } from './components/AgriAdvisory';
 import { KhetNetLogistics } from './components/KhetNetLogistics';
+import MyStock from './components/MyStock';
+import FarmerPayments from './components/FarmerPayments';
+import FarmerProfile from './components/FarmerProfile';
 
 // Import upgraded operating system components
 import { VerifiedFarmer } from './components/VerifiedFarmer';
@@ -92,6 +95,13 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
+  // Registration Validation States
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const [usernameAvailability, setUsernameAvailability] = useState<'available' | 'taken' | null>(null);
+  const [checkUsernameError, setCheckUsernameError] = useState<string | null>(null);
+  const [usernameSuggestions, setUsernameSuggestions] = useState<string[]>([]);
+
   // Core synchronized lists from Firebase Firestore
   const [products, setProducts] = useState<Product[]>([]);
   const [allLogins, setAllLogins] = useState<User[]>([]);
@@ -102,7 +112,7 @@ export default function App() {
   // 'hub' represents the primary landing screen.
   const [activeSubTab, setActiveSubTab] = useState<
     'hub' | 'ask' | 'scanner' | 'sell_marketplace' | 'prices' | 'subscription' | 'advisory' | 'logistics' |
-    'verify' | 'predict' | 'escrow' | 'insurance' | 'trader' | 'community' | 'khata'
+    'verify' | 'predict' | 'escrow' | 'insurance' | 'trader' | 'community' | 'khata' | 'payments' | 'stock' | 'profile'
   >('hub');
 
   // Interactive local states
@@ -322,6 +332,160 @@ export default function App() {
     setStage('login');
   };
 
+  // Automated Real-time Username Checking (with debouncing & API race condition protection)
+  useEffect(() => {
+    if (!isRegisterMode) {
+      setUsernameAvailability(null);
+      setCheckUsernameError(null);
+      setUsernameSuggestions([]);
+      return;
+    }
+
+    const trimmed = username.trim();
+    if (!trimmed) {
+      setUsernameAvailability(null);
+      setCheckUsernameError(null);
+      setUsernameSuggestions([]);
+      return;
+    }
+
+    if (trimmed.length < 3) {
+      setUsernameAvailability(null);
+      setCheckUsernameError("Username must be at least 3 characters.");
+      setUsernameSuggestions([]);
+      return;
+    }
+
+    setIsCheckingUsername(true);
+    setCheckUsernameError(null);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/check-username?username=${encodeURIComponent(trimmed)}`, {
+          signal: controller.signal
+        });
+        
+        if (!response.ok) {
+          throw new Error("HTTP error " + response.status);
+        }
+
+        const data = await response.json();
+        if (data.available) {
+          setUsernameAvailability('available');
+          setCheckUsernameError(null);
+          setUsernameSuggestions([]);
+        } else {
+          setUsernameAvailability('taken');
+          setCheckUsernameError("This username is already taken.");
+          setUsernameSuggestions([
+            `${trimmed}123`,
+            `${trimmed}2026`,
+            `${trimmed}_farmer`,
+            `${trimmed}01`,
+            `${trimmed}_india`
+          ]);
+        }
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          console.error("Failed to verify username availability:", err);
+          setCheckUsernameError("This username is already taken.");
+          setUsernameAvailability('taken'); // Mark taken to be safe on network errors
+          setUsernameSuggestions([
+            `${trimmed}123`,
+            `${trimmed}2026`,
+            `${trimmed}_farmer`,
+            `${trimmed}01`,
+            `${trimmed}_india`
+          ]);
+        }
+      } finally {
+        setIsCheckingUsername(false);
+      }
+    }, 400); // 400ms debounce
+
+    return () => {
+      controller.abort();
+      clearTimeout(timeoutId);
+    };
+  }, [username, isRegisterMode]);
+
+  const handleSelectSuggestion = (suggested: string) => {
+    setUsername(suggested);
+    setUsernameAvailability('available');
+    setCheckUsernameError(null);
+    setUsernameSuggestions([]);
+  };
+
+  // Handle Registration mode submission with secondary backend uniqueness locking
+  const handleRegisterModeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username || !password) {
+      alert("Please fill in both a valid username and password.");
+      return;
+    }
+
+    if (password.length < 6) {
+      setLoginError("Credentials security checklist: Passwords must contain 6 characters or above.");
+      return;
+    }
+
+    if (usernameAvailability !== 'available') {
+      setLoginError("Please choose an available username.");
+      return;
+    }
+
+    setIsActionLoading(true);
+    setLoginError(null);
+
+    try {
+      // 4. Perform second validation and atomic lock check on the backend to prevent simultaneously duplicates
+      const res = await fetch("/api/reserve-username", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim() })
+      });
+
+      if (res.status === 409) {
+        // Backend duplicate detected (HTTP 409 Conflict)
+        const trimmed = username.trim();
+        setLoginError("This username is already taken. Please choose another username or select one of our suggested alternatives below.");
+        setUsernameAvailability('taken');
+        setUsernameSuggestions([
+          `${trimmed}123`,
+          `${trimmed}2026`,
+          `${trimmed}_farmer`,
+          `${trimmed}01`,
+          `${trimmed}_india`
+        ]);
+        setIsActionLoading(false);
+        return;
+      }
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to finalize username reservation.");
+      }
+
+      // Successfully reserved lock on backend! Now proceed to personal demographics step
+      setStage('details');
+    } catch (err: any) {
+      console.error("Registration reservation error:", err);
+      const trimmed = username.trim();
+      setLoginError("This username is already taken. Please select one of our suggested available usernames below to continue immediately!");
+      setUsernameAvailability('taken');
+      setUsernameSuggestions([
+        `${trimmed}123`,
+        `${trimmed}2026`,
+        `${trimmed}_farmer`,
+        `${trimmed}01`,
+        `${trimmed}_india`
+      ]);
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
   const handleInteractiveLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password) {
@@ -448,9 +612,21 @@ export default function App() {
 
   const handleCategoryRegistration = async (role: 'farmer' | 'wholesaler') => {
     setIsActionLoading(true);
-    const virtualEmail = getVirtualEmail(username);
+    const trimmed = username.trim();
 
     try {
+      // 8. Perform backend validation before account creation.
+      const response = await fetch(`/api/check-username?username=${encodeURIComponent(trimmed)}`);
+      if (!response.ok) {
+        throw new Error("HTTP error " + response.status);
+      }
+      const data = await response.json();
+      if (!data.available) {
+        throw { code: 'auth/email-already-in-use', message: "Username already taken." };
+      }
+
+      const virtualEmail = getVirtualEmail(trimmed);
+
       // 1. Create credential user in Firebase
       const result = await createUserWithEmailAndPassword(auth, virtualEmail, password);
       
@@ -477,6 +653,29 @@ export default function App() {
       setActiveSubTab('hub');
     } catch (err: any) {
       console.error("Account registration flow failure:", err);
+      const eCode = err.code || '';
+      const eMsg = (err.message || '').toLowerCase();
+      
+      if (eCode === 'auth/email-already-in-use' || eMsg.includes('already') || eMsg.includes('taken') || eMsg.includes('exists') || eMsg.includes('use')) {
+        // 9. If a duplicate username is detected during final submission:
+        // Automatically generate and suggest new available usernames without crashing or freezing.
+        setStage('login');
+        setIsRegisterMode(true);
+        setUsernameAvailability('taken');
+        setCheckUsernameError("This username is already taken.");
+        setUsernameSuggestions([
+          `${trimmed}123`,
+          `${trimmed}2026`,
+          `${trimmed}_farmer`,
+          `${trimmed}01`,
+          `${trimmed}_india`
+        ]);
+        setLoginError("This username was recently registered. Please choose one of our suggested available usernames below to continue immediately!");
+        setIsActionLoading(false);
+        return;
+      }
+
+      const virtualEmail = getVirtualEmail(trimmed);
       // Local setup fallback
       const mockId = `guest_${Date.now()}`;
       const mockUser: User = {
@@ -800,9 +999,16 @@ export default function App() {
             setPassword={setPassword}
             showPassword={showPassword}
             setShowPassword={setShowPassword}
-            onSubmit={handleInteractiveLogin}
+            onSubmit={isRegisterMode ? handleRegisterModeSubmit : handleInteractiveLogin}
             error={loginError}
             onBack={() => setStage('location')}
+            isRegisterMode={isRegisterMode}
+            setIsRegisterMode={setIsRegisterMode}
+            isCheckingUsername={isCheckingUsername}
+            usernameAvailability={usernameAvailability}
+            checkUsernameError={checkUsernameError}
+            usernameSuggestions={usernameSuggestions}
+            onSelectSuggestion={handleSelectSuggestion}
           />
         )}
 
@@ -980,44 +1186,97 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Card 1: Ask KhetNet AI */}
-                    <div 
-                      onClick={() => setActiveSubTab('ask')}
-                      className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
-                    >
-                      <span className="text-4xl">🎤</span>
-                      <div>
-                        <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Ask KhetNet AI</h3>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Bilingual Assistant</p>
-                      </div>
-                    </div>
-
-                    {/* Card 2: Plant Blight Leaves Scanner */}
-                    <div 
-                      onClick={() => setActiveSubTab('scanner')}
-                      className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
-                    >
-                      <span className="text-4xl">📷</span>
-                      <div>
-                        <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Disease Scanner</h3>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Computer-Vision leaf Scan</p>
-                      </div>
-                    </div>
-
-                    {/* Card 3: Role dependant listing workspace (Sell crop vs Buyer feed) */}
-                    {user.role === 'farmer' ? (
+                  {user.role === 'farmer' ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pb-6">
+                      {/* Card 1: Sell Crop */}
                       <div 
                         onClick={() => setActiveSubTab('sell_marketplace')}
-                        className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
+                        className="bg-white p-8 rounded-[40px] border-3 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-md cursor-pointer hover:shadow-lg flex flex-col justify-between h-56 group active:scale-95 text-left relative overflow-hidden"
                       >
-                        <span className="text-4xl">🌾</span>
+                        <div className="flex justify-between items-start">
+                          <span className="text-5xl">🌾</span>
+                          <span className="text-[10px] bg-[#E2F0D9] text-[#2C411E] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">Fast Sell / फसल बेचना</span>
+                        </div>
                         <div>
-                          <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Sell Crop</h3>
-                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Post Harvest Listings</p>
+                          <h3 className="font-heading font-black text-2xl text-gray-950 group-hover:text-[#4C6B36] transition-all">Sell Crop</h3>
+                          <p className="text-xs text-gray-400 font-extrabold uppercase tracking-wide mt-1">View Mandi Prices • Create Crop Listing • Direct wholesales</p>
                         </div>
                       </div>
-                    ) : (
+
+                      {/* Card 2: My Stock */}
+                      <div 
+                        onClick={() => setActiveSubTab('stock')}
+                        className="bg-white p-8 rounded-[40px] border-3 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-md cursor-pointer hover:shadow-lg flex flex-col justify-between h-56 group active:scale-95 text-left relative overflow-hidden"
+                      >
+                        <div className="flex justify-between items-start">
+                          <span className="text-5xl">📦</span>
+                          <span className="text-[10px] bg-sky-100 text-sky-800 font-black px-2.5 py-1 rounded-full uppercase tracking-wider">Warehouse / स्टॉक भंडार</span>
+                        </div>
+                        <div>
+                          <h3 className="font-heading font-black text-2xl text-gray-955 group-hover:text-sky-700 transition-all">My Stock</h3>
+                          <p className="text-xs text-gray-400 font-extrabold uppercase tracking-wide mt-1">Add storage items • View current bags • One-tap qty update</p>
+                        </div>
+                      </div>
+
+                      {/* Card 3: Payments */}
+                      <div 
+                        onClick={() => setActiveSubTab('payments')}
+                        className="bg-white p-8 rounded-[40px] border-3 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-md cursor-pointer hover:shadow-lg flex flex-col justify-between h-56 group active:scale-95 text-left relative overflow-hidden"
+                      >
+                        <div className="flex justify-between items-start">
+                          <span className="text-5xl">💰</span>
+                          <span className="text-[10px] bg-emerald-100 text-emerald-800 font-black px-2.5 py-1 rounded-full uppercase tracking-wider">Ledger & Escrow / भुगतान</span>
+                        </div>
+                        <div>
+                          <h3 className="font-heading font-black text-2xl text-gray-950 group-hover:text-emerald-700 transition-all">Payments</h3>
+                          <p className="text-xs text-gray-400 font-extrabold uppercase tracking-wide mt-1">Earning histories • Pending buffers • Secure Escrow checks</p>
+                        </div>
+                      </div>
+
+                      {/* Card 4: AI Assistant vocal trigger */}
+                      <div 
+                        onClick={() => {
+                          window.dispatchEvent(new CustomEvent('open-khetmitra-ai'));
+                        }}
+                        className="bg-gradient-to-br from-[#4C6B36] to-[#364C27] p-8 rounded-[40px] text-white shadow-xl cursor-pointer hover:shadow-2xl flex flex-col justify-between h-56 group active:scale-95 text-left relative overflow-hidden border-2 border-white/20"
+                      >
+                        <div className="flex justify-between items-start">
+                          <span className="text-5xl">🎤</span>
+                          <span className="text-[10px] bg-white/20 text-white font-black px-3 py-1 rounded-full uppercase tracking-widest animate-pulse">Voice AI / बोलें ({lang.toUpperCase()})</span>
+                        </div>
+                        <div>
+                          <h3 className="font-heading font-black text-2xl text-white">AI Assistant</h3>
+                          <p className="text-xs text-emerald-100/90 font-extrabold uppercase tracking-wide mt-1">Voice-first assistant • Supports Hindi, Punjabi, Haryanvi, Rajasthani...</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Card 1: Ask KhetNet AI */}
+                      <div 
+                        onClick={() => setActiveSubTab('ask')}
+                        className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
+                      >
+                        <span className="text-4xl">🎤</span>
+                        <div>
+                          <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Ask KhetNet AI</h3>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Bilingual Assistant</p>
+                        </div>
+                      </div>
+
+                      {/* Card 2: Plant Blight Leaves Scanner */}
+                      <div 
+                        onClick={() => setActiveSubTab('scanner')}
+                        className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
+                      >
+                        <span className="text-4xl">📷</span>
+                        <div>
+                          <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Disease Scanner</h3>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Computer-Vision leaf Scan</p>
+                        </div>
+                      </div>
+
+                      {/* Card 3: Crop Marketplace */}
                       <div 
                         onClick={() => setActiveSubTab('sell_marketplace')}
                         className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
@@ -1028,133 +1287,133 @@ export default function App() {
                           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Contact Direct Farmers</p>
                         </div>
                       </div>
-                    )}
 
-                    {/* Card 4: Mandi Indices & statistics */}
-                    <div 
-                      onClick={() => setActiveSubTab('prices')}
-                      className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
-                    >
-                      <span className="text-4xl">📈</span>
-                      <div>
-                        <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Market Prices</h3>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">APMC pricing segments</p>
-                      </div>
-                    </div>
-
-                    {/* Card 5: Agri-Climate Advisory */}
-                    <div 
-                      onClick={() => setActiveSubTab('advisory')}
-                      className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
-                    >
-                      <span className="text-4xl">🌤️</span>
-                      <div>
-                        <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Sowing Advisor</h3>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Climate & Soil advisory</p>
-                      </div>
-                    </div>
-
-                    {/* Card 6: KhetNet Transport Logistics */}
-                    <div 
-                      onClick={() => setActiveSubTab('logistics')}
-                      className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
-                    >
-                      <span className="text-4xl">🚚</span>
-                      <div>
-                        <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">KhetNet Transport</h3>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Book Freight Carriers</p>
-                      </div>
-                    </div>
-
-                    {/* Card 7: Verified Farmer Registry */}
-                    <div 
-                      onClick={() => setActiveSubTab('verify')}
-                      className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
-                    >
-                      <span className="text-4xl">🛡️</span>
-                      <div>
-                        <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Verified Farmer</h3>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Certificates & Trust</p>
-                      </div>
-                    </div>
-
-                    {/* Card 8: Crop Price Predictor */}
-                    <div 
-                      onClick={() => setActiveSubTab('predict')}
-                      className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
-                    >
-                      <span className="text-4xl">💰</span>
-                      <div>
-                        <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Price Predictor</h3>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">AI crop 15-day trends</p>
-                      </div>
-                    </div>
-
-                    {/* Card 9: KhetNet Escrow Guard */}
-                    <div 
-                      onClick={() => setActiveSubTab('escrow')}
-                      className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
-                    >
-                      <span className="text-4xl">🔒</span>
-                      <div>
-                        <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Escrow Guard</h3>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Secured Cargo Trade</p>
-                      </div>
-                    </div>
-
-                    {/* Card 10: Crop Insurance Section */}
-                    <div 
-                      onClick={() => setActiveSubTab('insurance')}
-                      className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
-                    >
-                      <span className="text-4xl">☂️</span>
-                      <div>
-                        <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Crop Insurance</h3>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Yield risk shield cover</p>
-                      </div>
-                    </div>
-
-                    {/* Card 11: Agri Community Section */}
-                    <div 
-                      onClick={() => setActiveSubTab('community')}
-                      className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
-                    >
-                      <span className="text-4xl">🗣️</span>
-                      <div>
-                        <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Agri Community</h3>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Grower chats & Auto Translation</p>
-                      </div>
-                    </div>
-
-                    {/* Card 12: Khet Khata Accounting Ledger */}
-                    <div 
-                      onClick={() => setActiveSubTab('khata')}
-                      className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
-                    >
-                      <span className="text-4xl">📓</span>
-                      <div>
-                        <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Khet Khata</h3>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Bookkeeping, Profit Analytics</p>
-                      </div>
-                    </div>
-
-                    {/* Card 11 (Wholesalers Only): Trader Cockpit */}
-                    {user.role === 'wholesaler' && (
+                      {/* Card 4: Mandi Indices & statistics */}
                       <div 
-                        onClick={() => setActiveSubTab('trader')}
-                        className="bg-white p-6 rounded-[35px] border-2 border-[#4C6B36] bg-[#FAFDF6] hover:border-emerald-600 transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 col-span-1 sm:col-span-2 group active:scale-95"
+                        onClick={() => setActiveSubTab('prices')}
+                        className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
                       >
-                        <div className="flex justify-between items-start w-full">
-                          <span className="text-4xl">🧭</span>
-                          <span className="text-[8px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-black uppercase tracking-wider">Premium Cockpit</span>
-                        </div>
+                        <span className="text-4xl">📈</span>
                         <div>
-                          <h3 className="font-heading font-black text-lg text-gray-955 leading-snug group-hover:text-emerald-700 transition-colors">Trader Cockpit</h3>
-                          <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider mt-0.5">Verified farmers, Trust ratings & AI matches</p>
+                          <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Market Prices</h3>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">APMC pricing segments</p>
                         </div>
                       </div>
-                    )}
-                  </div>
+
+                      {/* Card 5: Agri-Climate Advisory */}
+                      <div 
+                        onClick={() => setActiveSubTab('advisory')}
+                        className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
+                      >
+                        <span className="text-4xl">🌤️</span>
+                        <div>
+                          <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Sowing Advisor</h3>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Climate & Soil advisory</p>
+                        </div>
+                      </div>
+
+                      {/* Card 6: KhetNet Transport Logistics */}
+                      <div 
+                        onClick={() => setActiveSubTab('logistics')}
+                        className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
+                      >
+                        <span className="text-4xl">🚚</span>
+                        <div>
+                          <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">KhetNet Transport</h3>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Book Freight Carriers</p>
+                        </div>
+                      </div>
+
+                      {/* Card 7: Verified Farmer Registry */}
+                      <div 
+                        onClick={() => setActiveSubTab('verify')}
+                        className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
+                      >
+                        <span className="text-4xl">🛡️</span>
+                        <div>
+                          <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Verified Farmer</h3>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Certificates & Trust</p>
+                        </div>
+                      </div>
+
+                      {/* Card 8: Crop Price Predictor */}
+                      <div 
+                        onClick={() => setActiveSubTab('predict')}
+                        className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
+                      >
+                        <span className="text-4xl">💰</span>
+                        <div>
+                          <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Price Predictor</h3>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">AI crop 15-day trends</p>
+                        </div>
+                      </div>
+
+                      {/* Card 9: KhetNet Escrow Guard */}
+                      <div 
+                        onClick={() => setActiveSubTab('escrow')}
+                        className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
+                      >
+                        <span className="text-4xl">🔒</span>
+                        <div>
+                          <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Escrow Guard</h3>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Secured Cargo Trade</p>
+                        </div>
+                      </div>
+
+                      {/* Card 10: Crop Insurance Section */}
+                      <div 
+                        onClick={() => setActiveSubTab('insurance')}
+                        className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
+                      >
+                        <span className="text-4xl">☂️</span>
+                        <div>
+                          <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Crop Insurance</h3>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Yield risk shield cover</p>
+                        </div>
+                      </div>
+
+                      {/* Card 11: Agri Community Section */}
+                      <div 
+                        onClick={() => setActiveSubTab('community')}
+                        className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
+                      >
+                        <span className="text-4xl">🗣️</span>
+                        <div>
+                          <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Agri Community</h3>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Grower chats & Auto Translation</p>
+                        </div>
+                      </div>
+
+                      {/* Card 12: Khet Khata Accounting Ledger */}
+                      <div 
+                        onClick={() => setActiveSubTab('khata')}
+                        className="bg-white p-6 rounded-[35px] border-2 border-[#E2F0D9] hover:border-[#4C6B36] transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 group active:scale-95"
+                      >
+                        <span className="text-4xl">📓</span>
+                        <div>
+                          <h3 className="font-heading font-black text-lg text-gray-950 leading-snug group-hover:text-[#4C6B36] transition-colors">Khet Khata</h3>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Bookkeeping, Profit Analytics</p>
+                        </div>
+                      </div>
+
+                      {/* Card 11 (Wholesalers Only): Trader Cockpit */}
+                      {user.role === 'wholesaler' && (
+                        <div 
+                          onClick={() => setActiveSubTab('trader')}
+                          className="bg-white p-6 rounded-[35px] border-2 border-[#4C6B36] bg-[#FAFDF6] hover:border-emerald-600 transition-all shadow-sm cursor-pointer hover:shadow-md flex flex-col justify-between h-44 col-span-1 sm:col-span-2 group active:scale-95"
+                        >
+                          <div className="flex justify-between items-start w-full">
+                            <span className="text-4xl">🧭</span>
+                            <span className="text-[8px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-black uppercase tracking-wider">Premium Cockpit</span>
+                          </div>
+                          <div>
+                            <h3 className="font-heading font-black text-lg text-gray-955 leading-snug group-hover:text-emerald-700 transition-colors">Trader Cockpit</h3>
+                            <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider mt-0.5">Verified farmers, Trust ratings & AI matches</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1637,25 +1896,93 @@ export default function App() {
                 </div>
               )}
 
+              {/* Sub Tab 15: My Stock */}
+              {activeSubTab === 'stock' && (
+                <div className="py-6 animate-fade-in">
+                  <div className="max-w-xl mx-auto px-6 mb-2 text-left animate-fade-in">
+                    <button 
+                      onClick={() => setActiveSubTab('hub')}
+                      className="text-xs font-black uppercase text-[#4C6B36] tracking-widest hover:underline"
+                    >
+                      ← Return to Main Portal
+                    </button>
+                  </div>
+                  <MyStock user={user} t={t} />
+                </div>
+              )}
+
+              {/* Sub Tab 16: Payments & Escrow Ledger */}
+              {activeSubTab === 'payments' && (
+                <div className="py-6 animate-fade-in">
+                  <div className="max-w-xl mx-auto px-6 mb-2 text-left animate-fade-in">
+                    <button 
+                      onClick={() => setActiveSubTab('hub')}
+                      className="text-xs font-black uppercase text-[#4C6B36] tracking-widest hover:underline"
+                    >
+                      ← Return to Main Portal
+                    </button>
+                  </div>
+                  <FarmerPayments user={user} t={t} />
+                </div>
+              )}
+
+              {/* Sub Tab 17: Farmer Profile & Advanced Panel */}
+              {activeSubTab === 'profile' && (
+                <div className="py-6 animate-fade-in">
+                  <div className="max-w-xl mx-auto px-6 mb-2 text-left animate-fade-in">
+                    <button 
+                      onClick={() => setActiveSubTab('hub')}
+                      className="text-xs font-black uppercase text-[#4C6B36] tracking-widest hover:underline"
+                    >
+                      ← Return to Main Portal
+                    </button>
+                  </div>
+                  <FarmerProfile 
+                    user={user} 
+                    setUser={setUser} 
+                    t={t} 
+                    onLogout={logout} 
+                    lang={lang} 
+                    setLang={setLang}
+                    triggerPlanChoice={triggerPlanChoice}
+                  />
+                </div>
+              )}
+
             </main>
 
             {/* Sticky Bottom Navigation dock for quick switching */}
             <footer className="bg-white border-t border-[#E2F0D9] sticky bottom-0 z-30 px-6 py-4.5 flex justify-around items-center">
               {[
-                { id: 'hub' as const, label: 'Portal Home', emoji: '🏠' },
-                { id: 'ask' as const, label: 'Ask AI', emoji: '🎤' },
-                { id: 'scanner' as const, label: 'Leaf Scan', emoji: '📷' },
-                { id: 'sell_marketplace' as const, label: user.role === 'farmer' ? 'Sell' : 'Mandi', emoji: user.role === 'farmer' ? '🌾' : '🛒' },
-              ].map(navBtn => (
-                <button
-                  key={navBtn.id}
-                  onClick={() => setActiveSubTab(navBtn.id)}
-                  className={`flex flex-col items-center gap-1.5 transition-all ${activeSubTab === navBtn.id ? 'text-[#4C6B36] scale-102 font-extrabold' : 'text-gray-400 hover:text-gray-600'}`}
-                >
-                  <span className="text-xl leading-none">{navBtn.emoji}</span>
-                  <span className="text-[10px] uppercase tracking-wider font-extrabold leading-none">{navBtn.label}</span>
-                </button>
-              ))}
+                { id: 'hub' as const, label: 'Home', emoji: '🏠' },
+                { id: 'sell_marketplace' as const, label: 'Market', emoji: user.role === 'farmer' ? '🌾' : '🛒' },
+                { id: 'ask' as const, label: 'AI', emoji: '🎤', customAction: () => {
+                  setActiveSubTab('ask');
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('open-khetmitra-ai'));
+                  }, 150);
+                }},
+                { id: 'payments' as const, label: 'Payments', emoji: '💰' },
+                { id: 'profile' as const, label: 'Profile', emoji: '👤' },
+              ].map(navBtn => {
+                const isActive = activeSubTab === navBtn.id;
+                return (
+                  <button
+                    key={navBtn.id}
+                    onClick={() => {
+                      if (navBtn.customAction) {
+                        navBtn.customAction();
+                      } else {
+                        setActiveSubTab(navBtn.id);
+                      }
+                    }}
+                    className={`flex flex-col items-center gap-1.5 transition-all ${isActive ? 'text-[#4C6B36] scale-102 font-extrabold' : 'text-gray-400 hover:text-gray-600'}`}
+                  >
+                    <span className="text-xl leading-none">{navBtn.emoji}</span>
+                    <span className="text-[10px] uppercase tracking-wider font-extrabold leading-none">{navBtn.label}</span>
+                  </button>
+                );
+              })}
             </footer>
 
           </motion.div>
@@ -1775,18 +2102,36 @@ function AreaSelectionScreen({ t, onSubmit, onBack }: any) {
   );
 }
 
-function LoginScreenWidget({ t, username, setUsername, password, setPassword, showPassword, setShowPassword, onSubmit, error, onBack }: any) {
+function LoginScreenWidget({ 
+  t, 
+  username, 
+  setUsername, 
+  password, 
+  setPassword, 
+  showPassword, 
+  setShowPassword, 
+  onSubmit, 
+  error, 
+  onBack,
+  isRegisterMode,
+  setIsRegisterMode,
+  isCheckingUsername,
+  usernameAvailability,
+  checkUsernameError,
+  usernameSuggestions = [],
+  onSelectSuggestion
+}: any) {
   return (
     <motion.div 
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="p-8 min-h-screen flex flex-col justify-center max-w-sm mx-auto w-full relative space-y-8"
+      className="p-8 min-h-screen flex flex-col justify-center max-w-sm mx-auto w-full relative space-y-6"
     >
       <div className="absolute top-8 left-8">
         <button onClick={onBack} className="p-2.5 bg-white rounded-xl shadow-sm border border-[#E2F0D9] hover:bg-[#F0F7EB] transition-colors"><ArrowLeft className="w-5 h-5 text-[#4C6B36]" /></button>
       </div>
 
-      <div className="text-center space-y-4">
+      <div className="text-center space-y-3">
         <div className="w-20 h-20 bg-[#4C6B36] rounded-3xl mx-auto flex items-center justify-center shadow-xl shadow-[#4C6B36]/20">
           <KhetNetLogo className="w-14 h-14" />
         </div>
@@ -1796,9 +2141,39 @@ function LoginScreenWidget({ t, username, setUsername, password, setPassword, sh
         </div>
       </div>
 
+      {/* Modern, Premium Mode Selector tabs (Secure Sign In vs Create Account) */}
+      <div className="flex bg-[#EBF2E6] p-1 rounded-xl shadow-inner">
+        <button
+          type="button"
+          onClick={() => {
+            setIsRegisterMode(false);
+          }}
+          className={`flex-1 py-2.5 text-xs font-black rounded-lg uppercase tracking-wider transition-all duration-200 ${
+            !isRegisterMode
+              ? 'bg-[#4C6B36] text-white shadow-sm'
+              : 'text-[#4C6B36] hover:bg-[#E2EED9]'
+          }`}
+        >
+          {t.login_tab || 'Secure Sign In'}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setIsRegisterMode(true);
+          }}
+          className={`flex-1 py-2.5 text-xs font-black rounded-lg uppercase tracking-wider transition-all duration-200 ${
+            isRegisterMode
+              ? 'bg-[#4C6B36] text-white shadow-sm'
+              : 'text-[#4C6B36] hover:bg-[#E2EED9]'
+          }`}
+        >
+          {t.register_tab || 'Create Account'}
+        </button>
+      </div>
+
       <form onSubmit={onSubmit} className="space-y-5">
         {error && (
-          <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-xs font-bold flex items-start gap-2">
+          <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-xs font-bold flex items-start gap-2 animate-bounce-short">
             <AlertCircle className="w-5 h-5 shrink-0" />
             <p className="leading-snug">{error}</p>
           </div>
@@ -1806,18 +2181,89 @@ function LoginScreenWidget({ t, username, setUsername, password, setPassword, sh
 
         <div className="space-y-1.5">
           <label className="text-xs font-bold text-[#4C6B36] ml-1">Username / Phone No.</label>
-          <input 
-            required
-            type="text" 
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="w-full px-4 py-3.5 bg-[#F5F9F2] border-none rounded-xl outline-none text-xs font-semibold placeholder:text-gray-300"
-            placeholder="MandiUsername"
-          />
+          <div className="relative">
+            <input 
+              required
+              type="text" 
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className={`w-full px-4 py-3.5 bg-[#F5F9F2] rounded-xl outline-none text-xs font-semibold placeholder:text-gray-300 transition-all border ${
+                isRegisterMode
+                  ? usernameAvailability === 'taken' || checkUsernameError
+                    ? 'border-red-500 focus:border-red-500 bg-red-50/50'
+                    : usernameAvailability === 'available'
+                    ? 'border-green-500 focus:border-green-500 bg-green-50/50'
+                    : 'border-transparent focus:border-[#4C6B36]'
+                  : 'border-transparent focus:border-[#4C6B36]'
+              }`}
+              placeholder="MandiUsername"
+            />
+            {isRegisterMode && isCheckingUsername && (
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                <div className="w-4 h-4 border-2 border-[#4C6B36] border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            )}
+          </div>
+
+          {/* Validation Feedback Messages */}
+          {isRegisterMode && (
+            <div className="mt-1 space-y-2 pl-1">
+              {isCheckingUsername && (
+                <p className="text-[10px] text-gray-500 font-bold animate-pulse flex items-center gap-1">Checking username availability...</p>
+              )}
+              {!isCheckingUsername && usernameAvailability === 'taken' && (
+                <div className="space-y-2">
+                  <p className="text-[11px] text-red-500 font-extrabold flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4 text-red-500" />
+                    This username is already taken.
+                  </p>
+                  
+                  {/* Suggestions alternatives container */}
+                  {usernameSuggestions && usernameSuggestions.length > 0 && (
+                    <div className="mt-2.5 p-3.5 bg-[#FAFDF6] rounded-xl border border-[#E2F0D9]/80 space-y-2 animate-fadeIn">
+                      <p className="text-[10px] uppercase tracking-wider font-extrabold text-[#4C6B36] flex items-center gap-1">
+                        ⭐ Try one of our recommended alternatives:
+                      </p>
+                      <div className="flex flex-col gap-1.5 max-h-[220px] overflow-y-auto pr-1">
+                        {usernameSuggestions.map((suggested, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => onSelectSuggestion(suggested)}
+                            id={`suggest-btn-${idx}`}
+                            className="w-full flex items-center justify-between px-3.5 py-2.5 bg-white hover:bg-[#F2F8EB] text-gray-900 border border-[#E2F0D9] hover:border-[#4C6B36] rounded-xl text-xs font-bold transition-all shadow-xs group"
+                          >
+                            <span className="font-mono text-[#2C4A1G] group-hover:text-[#4C6B36]">{suggested}</span>
+                            <span className="text-[9px] bg-[#4C6B36] text-white px-2.5 py-1 rounded font-black uppercase tracking-wider transition-colors hover:bg-[#3D562B]">
+                              Choose Suggested Username
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {!isCheckingUsername && checkUsernameError && usernameAvailability !== 'taken' && (
+                <p className="text-[11px] text-red-500 font-extrabold flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 text-red-500" />
+                  {checkUsernameError}
+                </p>
+              )}
+              {!isCheckingUsername && usernameAvailability === 'available' && (
+                <p className="text-[11px] text-green-600 font-extrabold flex items-center gap-1.5 animate-bounce-short">
+                  <span className="w-2 h-2 rounded-full bg-green-500 inline-block animate-ping"></span>
+                  <span>Username available ✓</span>
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-[#4C6B36] ml-1">{t.password || 'Security PIN'}</label>
+          <label className="text-xs font-bold text-[#4C6B36] ml-1">
+            {isRegisterMode ? 'Choose Security PIN (6+ digits)' : (t.password || 'Security PIN')}
+          </label>
           <div className="relative">
             <input 
               required
@@ -1839,9 +2285,10 @@ function LoginScreenWidget({ t, username, setUsername, password, setPassword, sh
 
         <button 
           type="submit"
-          className="w-full py-4 bg-[#4C6B36] hover:bg-[#3D562B] text-white text-base font-black uppercase tracking-widest transition-all rounded-xl shadow-md"
+          disabled={isRegisterMode ? (usernameAvailability !== 'available' || isCheckingUsername) : false}
+          className="w-full py-4 bg-[#4C6B36] hover:bg-[#3D562B] text-white text-base font-black uppercase tracking-widest transition-all rounded-xl shadow-md disabled:opacity-45 disabled:cursor-not-allowed"
         >
-          {t.login || 'Verify & Continue'}
+          {isRegisterMode ? (t.register || 'Claim & Register') : (t.login || 'Verify & Continue')}
         </button>
       </form>
     </motion.div>
