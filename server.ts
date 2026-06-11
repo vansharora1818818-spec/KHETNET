@@ -1066,20 +1066,53 @@ Format the response package strictly as valid JSON, nothing else:
 
 Farmer Spoken Input: "${queryText}"`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json"
-      }
-    });
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json"
+        }
+      });
+    } catch (apiErr: any) {
+      console.warn("KhetMitra Primary AI Model gemini-3.5-flash failed (possibly 503 limit), falling back to alternative: ", apiErr);
+      response = await ai.models.generateContent({
+        model: "gemini-flash-latest",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json"
+        }
+      });
+    }
 
     const parsed = JSON.parse((response.text || "").trim().replace(/^```json\s*/, "").replace(/\s*```$/, ""));
     res.json(parsed);
   } catch (err: any) {
-    console.error("KhetMitra Voice AI failed, running heuristics fallback:", err);
-    const fallback = runHeuristicsEngine();
-    res.json(fallback);
+    console.error("KhetMitra Voice AI entirely failed, running heuristics fallback:", err);
+    try {
+      const fallback = runHeuristicsEngine();
+      res.json(fallback);
+    } catch (fallbackErr: any) {
+      console.error("Critical: runHeuristicsEngine also threw inside catch block:", fallbackErr);
+      res.json({
+        detectedLanguage: "Hindi",
+        detectedLanguageCode: "hi-IN",
+        spokenReply: "मैं आपकी आज गेहूं-धान की कीमतों, मंडी भाव, और पत्तों की बीमारी जांचने में मदद कर सकता हूँ। आप क्या करना चाहते हैं?",
+        action: {
+          type: "NONE",
+          tab: null,
+          cropDetails: null
+        },
+        requiresConfirmation: false,
+        contextMemory: {
+          lastDiscussedCrop: "Wheat",
+          lastDiscussedQuantity: null,
+          lastDiscussedPrice: null,
+          preferredLanguage: "Hindi"
+        }
+      });
+    }
   }
 });
 

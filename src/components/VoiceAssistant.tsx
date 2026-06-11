@@ -147,6 +147,7 @@ export function VoiceAssistant({
   // Native Web Speech Synthesis / Recognition references
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
+  const continuousListeningActive = useRef(false);
 
   // Active Ref Pattern to keep process callback updated without re-running initialization
   const processInputRef = useRef<any>(null);
@@ -178,14 +179,24 @@ export function VoiceAssistant({
     };
   }, []);
 
-  // Initialize Speech APIs
+  // Initialize Speech APIs and listen to voiceschanged event
   useEffect(() => {
     if (typeof window !== 'undefined') {
       synthRef.current = window.speechSynthesis;
+      
+      const handleVoicesChanged = () => {
+        if (window.speechSynthesis) {
+          console.log("SpeechSynthesis voices refreshed: ", window.speechSynthesis.getVoices().length);
+        }
+      };
+      if (window.speechSynthesis) {
+        window.speechSynthesis.addEventListener('voiceschanged', handleVoicesChanged);
+      }
+
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         const rec = new SpeechRecognition();
-        rec.continuous = false;
+        rec.continuous = true; // Use continuous speech listening so it keeps listening
         rec.interimResults = false;
         
         rec.onstart = () => {
@@ -196,32 +207,64 @@ export function VoiceAssistant({
 
         rec.onerror = (e: any) => {
           console.warn("Speech API recognition error", e);
-          setIsRecording(false);
-          setListeningState('idle');
           if (e.error === 'not-allowed') {
+            continuousListeningActive.current = false;
+            setIsRecording(false);
+            setListeningState('idle');
             setMicrophoneError("Microphone permission blocked. Please type your command below, use simulated voices, or test in a full tab!");
+          } else if (e.error === 'aborted') {
+            // Treat abort as transient state when we explicitly stop or toggle language
+            console.log("Recognition aborted.");
           } else {
-            setMicrophoneError(`Mic error: ${e.error || "unavailable"}. Please type manually below.`);
+            console.warn(`Speech recognition non-fatal error: ${e.error}`);
           }
         };
 
         rec.onend = () => {
-          setIsRecording(false);
+          if (continuousListeningActive.current) {
+            setTimeout(() => {
+              if (continuousListeningActive.current && recognitionRef.current) {
+                try {
+                  recognitionRef.current.start();
+                } catch (err) {
+                  console.warn("Auto-restart of Speech Recognition failed:", err);
+                }
+              }
+            }, 300);
+          } else {
+            setIsRecording(false);
+            setListeningState('idle');
+          }
         };
 
         rec.onresult = (event: any) => {
-          const text = event.results[event.results.length - 1][0].transcript;
-          setTranscript(text);
-          setListeningState('finished');
-          if (processInputRef.current) {
-            processInputRef.current(text);
+          // Do not process speech input if synthesizer is speaking to prevent infinite echo loops
+          if ((window.speechSynthesis && window.speechSynthesis.speaking) || isSpeaking) {
+            console.log("Ignoring voice input feedback loop while synthesizer speaks.");
+            return;
+          }
+          
+          const resultIndex = event.resultIndex;
+          const text = event.results[resultIndex][0].transcript;
+          if (text && text.trim()) {
+            setTranscript(text);
+            setListeningState('finished');
+            if (processInputRef.current) {
+              processInputRef.current(text);
+            }
           }
         };
 
         recognitionRef.current = rec;
       }
+
+      return () => {
+        if (window.speechSynthesis) {
+          window.speechSynthesis.removeEventListener('voiceschanged', handleVoicesChanged);
+        }
+      };
     }
-  }, []);
+  }, [isSpeaking]);
 
   // Clean speaking on panel unmount
   useEffect(() => {
@@ -319,6 +362,7 @@ export function VoiceAssistant({
       try {
         // Listening configured standard context
         recognitionRef.current.lang = matchedVoiceLang.code;
+        continuousListeningActive.current = true; // Set continuous flag to active!
         recognitionRef.current.start();
       } catch (e) {
         console.warn("Speech API Busy. Falling back.");
@@ -446,7 +490,7 @@ export function VoiceAssistant({
         spokenReply = "ठीक है, मैंने स्वीकार कर लिया है।";
       }
     } else {
-      spokenReply = "मुझे समझने में कुछ कठिनाई हुई। कृपया फिर से बोलें।";
+      spokenReply = "माफ़ कीजिये, मैं समझ नहीं पाया। आप 'मंडी भाव', 'ट्रांसपोर्ट', 'बीमारी' या 'प्याज बेचें' बोल सकते हैं।";
     }
 
     return {
@@ -1144,7 +1188,10 @@ export function VoiceAssistant({
                 )}
                 <button
                   onClick={isRecording ? () => {
-                    if (recognitionRef.current) recognitionRef.current.stop();
+                    continuousListeningActive.current = false; // Turn off continuous loop
+                    if (recognitionRef.current) {
+                      try { recognitionRef.current.stop(); } catch(e){}
+                    }
                     setIsRecording(false);
                     setListeningState('finished');
                   } : startListening}
@@ -1158,7 +1205,7 @@ export function VoiceAssistant({
                 </button>
               </div>
               <h4 className="text-xs font-black text-gray-950 font-heading">
-                {isRecording ? 'Listening Dynamic Voice...' : (isSpeaking ? 'Speaking Response...' : 'Tap Mic to Speak')}
+                {isRecording ? 'आवाज सुन रहा हूँ...' : (isSpeaking ? 'सहायक बोल रहा है...' : 'बोलने के लिए माइक दबाएं')}
               </h4>
             </div>
 
@@ -1192,6 +1239,10 @@ export function VoiceAssistant({
             <div className="flex flex-col items-center border-t border-gray-100 pt-3">
               <button
                 onClick={() => {
+                  continuousListeningActive.current = false; // Turn off continuous loop
+                  if (recognitionRef.current) {
+                    try { recognitionRef.current.stop(); } catch (e) {}
+                  }
                   if (synthRef.current) {
                     synthRef.current.cancel();
                     setIsSpeaking(false);
